@@ -50,6 +50,11 @@
 - 이 맥북을 Hub에 `MacBook-Local` Server로 등록, `agent-daemon`을 launchd
   상시 서비스로 설치 — 실제로 폰 → Hub → 맥북 Codex 작업 디스패치가
   종단으로 동작하는 것까지 사용자가 실기기에서 직접 확인함 (2026-08-09)
+- 운영 Hub에 승인 기반 서버 등록 API를 배포하고, 우분투의 `Ubuntu-Codex`
+  worker를 같은 플로우로 등록했다. 사용자가 모바일 앱에서 확인 코드
+  `458394`를 직접 승인했고, 이후 우분투 `code-caller-agent-daemon` systemd
+  user service가 `active`로 올라왔으며 Hub `/daemon` 로그에서 새 서버
+  `e1f1370a-7059-428f-be39-fcfb97d01303` 연결을 확인했다 (2026-08-09).
 - 버그 두 건 발견/수정: `codex exec` stdin 데드락, 릴리즈 APK cleartext
   차단 (`network_security_config.xml`)
 - 목표 달성: "폰 화면에서 맥북 Codex에게 작업을 지시한다"는 이 프로젝트의
@@ -63,6 +68,9 @@
 - 화면 수정 요청 → 최우선. Codex가 직접 사용자와 대화하며 처리 (`AGENTS.md`의
   "화면 수정 요청을 받았을 때" 섹션 참고). 이 루프는 사용자와 Codex 중심으로
   진행하고, Claude는 명시적으로 다시 부르기 전까지 관여하지 않는다.
+- 서버/worker 운영 → 사용자가 직접 우분투 터미널에서 명령을 치는 방식은
+  임시 예외로만 둔다. 기본 원칙은 Codex가 SSH로 배포·등록·서비스 재시작을
+  처리하고, 보안상 필요한 승인만 사용자가 모바일 앱에서 직접 누르는 것이다.
 - 백엔드/인프라 작업 → `ops/BACKLOG.md` 우선순위대로 헤드리스 자동 실행
   또는 사용자가 직접 요청
 - Claude는 사용자가 명시적으로 다시 부르기 전까지 이 프로젝트의 일상

@@ -54,6 +54,44 @@ curl -s -X POST http://localhost:3000/servers \
 
 The server shows `ONLINE` once the daemon connects and starts heartbeating.
 
+## Production user service example
+
+For a long-running worker, install the daemon as a systemd user service after
+`npm run register` has written `agent-daemon/.env`:
+
+```ini
+[Unit]
+Description=Code Caller Agent Daemon
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/jahmin/awork/code-caller/agent-daemon
+EnvironmentFile=/home/jahmin/awork/code-caller/agent-daemon/.env
+ExecStart=/usr/bin/node /home/jahmin/awork/code-caller/agent-daemon/src/index.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+```
+
+Install and verify:
+
+```bash
+mkdir -p ~/.config/systemd/user
+$EDITOR ~/.config/systemd/user/code-caller-agent-daemon.service
+systemctl --user daemon-reload
+systemctl --user enable code-caller-agent-daemon
+systemctl --user restart code-caller-agent-daemon
+systemctl --user status code-caller-agent-daemon --no-pager
+```
+
+On 2026-08-09, the Ubuntu deployment was registered this way as
+`Ubuntu-Codex`. The mobile app approval code was confirmed by the user, the
+daemon service became `active`, and the Hub logged a `/daemon` connection for
+server `e1f1370a-7059-428f-be39-fcfb97d01303`.
+
 ## Configuration (environment variables)
 
 | Variable | Default | Description |

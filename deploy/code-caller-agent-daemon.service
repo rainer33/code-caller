@@ -1,0 +1,14 @@
+[Unit]
+Description=Code Caller Agent Daemon
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/jahmin/awork/code-caller/agent-daemon
+EnvironmentFile=/home/jahmin/awork/code-caller/agent-daemon/.env
+ExecStart=/usr/bin/node /home/jahmin/awork/code-caller/agent-daemon/src/index.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

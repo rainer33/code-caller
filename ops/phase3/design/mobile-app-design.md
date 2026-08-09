@@ -25,6 +25,10 @@ clients. Agent execution remains server-side through Hub + `agent-daemon`.
   `code-caller register` style command, the mobile app shows a registration
   request with a short verification code, and approval creates the durable
   `Server` plus daemon credential.
+- This approval-based onboarding path is implemented as of `d5e1865` and
+  deployed to the Ubuntu Hub on 2026-08-09. `Ubuntu-Codex` was registered by
+  running `agent-daemon npm run register`, approving the verification code in
+  the mobile app, and starting `code-caller-agent-daemon.service`.
 - Voice input is an input-mode enhancement for `New Task`, not a backend
   architecture change. Speech recognition should write editable text into the
   prompt field; the user still presses submit explicitly.
@@ -37,7 +41,7 @@ clients. Agent execution remains server-side through Hub + `agent-daemon`.
     LoginScreen
     ServersScreen
     TasksScreen
-    TaskDetailScreen (planned)
+    TaskDetailScreen
     ApprovalsScreen
   services/
     apiClient        REST with Bearer JWT
@@ -151,15 +155,17 @@ REST:
 - `POST /approvals/:id/decision` body `{ approve, reason? }` -> `Approval`
 - `POST /notifications/push-token` body `{ token, platform: "ANDROID" }` -> `204`
 
-Planned REST for server onboarding:
+REST for server onboarding:
 
 - `POST /server-registration-requests` from an unregistered daemon, creating a
-  short-lived pending request and verification code.
-- `GET /server-registration-requests?status=PENDING` for the mobile app.
+  short-lived pending request, verification code, and request secret.
+- `GET /server-registration-requests` for the authenticated mobile app's
+  pending requests.
 - `POST /server-registration-requests/:id/decision` for mobile approve/reject.
-- Approval creates the durable `Server` record and returns/delivers the daemon
-  credential through the registration session, not by exposing secrets in the
-  app list.
+- `GET /server-registration-requests/:id/result?secret=...` for daemon polling.
+  Approval creates the durable `Server` record and delivers the daemon
+  credential once through the registration session, not by exposing secrets in
+  the app list.
 
 Socket.io:
 
@@ -191,14 +197,13 @@ Socket.io:
 
 ## Product Roadmap After UI Cleanup
 
-1. Add `TaskDetailScreen`: full prompt/log/result reading, auto-scroll for live
-   logs, and a clear back path to the task list.
-2. Add approval-based server onboarding: `code-caller register` on the server,
-   mobile approval, one-time daemon credential delivery, and automatic online
-   appearance in `Servers`.
-3. Generalize worker routing from fixed `WorkerType` to provider/profile/
-   capability so Codex, Claude Code, Antigravity, OpenCode, and future workers
-   fit the same model.
+1. Completed: `TaskDetailScreen` with full prompt/result/log reading,
+   per-section scrolling, result-first reading order, and live log auto-scroll.
+2. Completed: approval-based server onboarding with `agent-daemon npm run
+   register`, mobile approval, one-time daemon credential delivery, and
+   automatic online appearance in `Servers`.
+3. Started: provider/profile/capability data model via `WorkerProfile` and
+   provider enum. Hub routing still needs capacity-aware selection.
 4. Add voice-to-text prompt input on mobile after the task detail and onboarding
    foundations are stable.
 5. Add iPhone build/support using the same control-plane API contracts.

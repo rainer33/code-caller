@@ -18,6 +18,11 @@ user describe the goal first, then let Hub recommend or choose the best
 server/agent profile based on availability and capability. Manual server
 selection remains useful as an advanced override.
 
+As of `d5e1865`, the first goal-first UX pass is implemented: the prompt/goal
+field is the first step on `New Task`, server selection is an execution target
+choice after the goal, and the screen summarizes which server/worker will run
+the task. Hub recommendation and capacity-aware routing are still future work.
+
 ## Confirmed Decisions
 
 - Keep the current single-file React Native app shape: Phase 3 uses `App.tsx`
@@ -39,6 +44,9 @@ selection remains useful as an advanced override.
 - The current fixed `WorkerType` selector is acceptable for MVP, but future
   versions should use provider/profile/capability metadata rather than a small
   hard-coded enum.
+- Ubuntu is now available as a real registered worker path. The `Ubuntu-Codex`
+  daemon was registered through the mobile approval flow and runs as
+  `code-caller-agent-daemon.service` on the Hub host.
 
 ## Architecture
 
@@ -102,6 +110,13 @@ existing approval decision callback.
 `NewTaskScreen` uses scroll-aware keyboard handling. Prompt focus and text
 growth should move the form toward the prompt/submit area rather than leaving
 the user typing behind the keyboard or bottom navigation.
+
+Current UI structure:
+
+1. `작업 목표`: fixed-height multiline prompt input with internal scrolling.
+2. `실행 준비`: summary of selected server and worker.
+3. `실행 서버`: manual target override from the current server list.
+4. `AI Worker`: fixed worker selector until profile routing is completed.
 
 ## Data Model
 
@@ -201,12 +216,12 @@ Live verification-only REST:
 
 ## Follow-up UX Roadmap
 
-1. Add a Task Detail screen before trying to show large prompts, logs, and
-   results inside list cards.
-2. Keep New Task keyboard-safe with auto-scroll, and later add microphone
-   input as a text-entry helper.
-3. Replace hard-coded server-first task creation with goal-first creation and
-   Hub recommendation once provider/profile/capability routing exists.
+1. Completed: Task Detail screen for large prompts, results, and logs.
+2. Completed first pass: New Task keyboard-safe prompt input and goal-first
+   layout.
+3. Next: replace manual server/worker selection with Hub recommendation once
+   provider/profile/capability routing and capacity checks exist.
+4. Later: add microphone input as a text-entry helper.
 
 ## Verification Plan
 
