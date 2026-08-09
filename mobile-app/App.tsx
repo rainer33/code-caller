@@ -180,6 +180,39 @@ function extractPrompt(input: unknown) {
   return summarize(input);
 }
 
+function readableText(value: string) {
+  return value
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\\t/g, '\t')
+    .replace(/^```[a-zA-Z0-9_-]*\s*/gm, '')
+    .replace(/```$/gm, '')
+    .trim();
+}
+
+function extractResult(result: unknown) {
+  if (!result) {
+    return '아직 결과가 없습니다.';
+  }
+  if (typeof result === 'string') {
+    return readableText(result);
+  }
+  if (typeof result === 'object' && !Array.isArray(result)) {
+    const data = result as {
+      lastChunk?: unknown;
+      output?: unknown;
+      text?: unknown;
+      result?: unknown;
+    };
+    const preferred =
+      data.lastChunk ?? data.output ?? data.text ?? data.result ?? null;
+    if (typeof preferred === 'string') {
+      return readableText(preferred);
+    }
+  }
+  return readableText(summarize(result));
+}
+
 function compactId(value?: string | null) {
   if (!value) {
     return 'n/a';
@@ -778,7 +811,8 @@ function NewTaskScreen({
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
       style={styles.flex}
     >
       <ScrollView
@@ -1004,7 +1038,7 @@ function TaskDetailScreen({
   const logScrollRef = useRef<ScrollView | null>(null);
   const promptText = extractPrompt(task.input) || '입력 내용 없음';
   const logs = task.logs?.trim() || '아직 로그가 없습니다.';
-  const result = task.result ? summarize(task.result) : '아직 결과가 없습니다.';
+  const result = extractResult(task.result);
   const isLive = ['QUEUED', 'RUNNING', 'AWAITING_APPROVAL'].includes(
     task.status.toUpperCase(),
   );
@@ -1094,7 +1128,11 @@ function TaskDetailScreen({
         ) : null}
 
         <DetailSection title="프롬프트">
-          <Text style={styles.detailBodyText}>{promptText}</Text>
+          <ScrollableTextBox value={promptText} variant="compact" />
+        </DetailSection>
+
+        <DetailSection title="결과">
+          <ScrollableTextBox value={result} variant="result" />
         </DetailSection>
 
         <DetailSection
@@ -1107,17 +1145,33 @@ function TaskDetailScreen({
             ref={logScrollRef}
             nestedScrollEnabled
             onContentSizeChange={scrollLogsToEnd}
-            style={styles.logBox}
+            style={[styles.textScrollBox, styles.logBox]}
           >
             <Text style={styles.logText}>{logs}</Text>
           </ScrollView>
         </DetailSection>
-
-        <DetailSection title="결과">
-          <Text style={styles.detailBodyText}>{result}</Text>
-        </DetailSection>
       </ScrollView>
     </View>
+  );
+}
+
+function ScrollableTextBox({
+  value,
+  variant,
+}: {
+  value: string;
+  variant: 'compact' | 'result';
+}) {
+  return (
+    <ScrollView
+      nestedScrollEnabled
+      style={[
+        styles.textScrollBox,
+        variant === 'result' ? styles.resultBox : styles.compactTextBox,
+      ]}
+    >
+      <Text style={styles.detailBodyText}>{value}</Text>
+    </ScrollView>
   );
 }
 
@@ -1649,7 +1703,7 @@ const styles = StyleSheet.create({
   form: {
     gap: 12,
     padding: 16,
-    paddingBottom: 152,
+    paddingBottom: 260,
   },
   screenHeading: {
     marginBottom: 2,
@@ -2114,12 +2168,24 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
   },
+  textScrollBox: {
+    borderRadius: 8,
+    padding: 12,
+  },
+  compactTextBox: {
+    backgroundColor: colors.surfaceAlt,
+    maxHeight: 180,
+    minHeight: 140,
+  },
+  resultBox: {
+    backgroundColor: colors.surfaceAlt,
+    maxHeight: 360,
+    minHeight: 260,
+  },
   logBox: {
     backgroundColor: '#0f172a',
-    borderRadius: 8,
-    maxHeight: 420,
-    minHeight: 260,
-    padding: 12,
+    maxHeight: 180,
+    minHeight: 140,
   },
   logText: {
     color: '#e5e7eb',
