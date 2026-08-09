@@ -25,7 +25,11 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  SafeAreaProvider,
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 import { io, Socket } from 'socket.io-client';
 
 const API_BASE_URL = 'http://172.30.1.83:3000';
@@ -275,6 +279,15 @@ function pushSummary(pushState: string) {
 }
 
 export default function App() {
+  return (
+    <SafeAreaProvider>
+      <CodeCallerApp />
+    </SafeAreaProvider>
+  );
+}
+
+function CodeCallerApp() {
+  const insets = useSafeAreaInsets();
   const [tokens, setTokens] = useState<AuthTokens | null>(null);
   const [email, setEmail] = useState('admin@example.com');
   const [password, setPassword] = useState('');
@@ -694,6 +707,7 @@ export default function App() {
       <BottomNavigation
         activeTab={tab}
         approvalsCount={approvals.length}
+        bottomInset={insets.bottom}
         onChange={setTab}
         serversCount={servers.length}
         tasksCount={tasks.length}
@@ -1092,12 +1106,14 @@ function ErrorBanner({ message }: { message: string }) {
 function BottomNavigation({
   activeTab,
   approvalsCount,
+  bottomInset,
   onChange,
   serversCount,
   tasksCount,
 }: {
   activeTab: Tab;
   approvalsCount: number;
+  bottomInset: number;
   onChange: (tab: Tab) => void;
   serversCount: number;
   tasksCount: number;
@@ -1109,7 +1125,14 @@ function BottomNavigation({
   };
 
   return (
-    <View style={styles.bottomNav}>
+    <View
+      style={[
+        styles.bottomNav,
+        {
+          paddingBottom: Math.max(bottomInset, 34),
+        },
+      ]}
+    >
       {TABS.map(item => {
         const active = activeTab === item.key;
         const count = item.count ? counts[item.count] : undefined;
@@ -1413,12 +1436,12 @@ const styles = StyleSheet.create({
   list: {
     gap: 12,
     padding: 16,
-    paddingBottom: 100,
+    paddingBottom: 148,
   },
   form: {
     gap: 12,
     padding: 16,
-    paddingBottom: 104,
+    paddingBottom: 152,
   },
   screenHeading: {
     marginBottom: 2,
