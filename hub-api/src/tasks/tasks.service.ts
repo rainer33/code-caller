@@ -51,8 +51,8 @@ export class TasksService {
   }
 
   async findOneForOwner(ownerId: string, taskId: string) {
-    const task = await this.getOwnedTask(ownerId, taskId);
-    return task;
+    const { server, ...publicTask } = await this.getOwnedTask(ownerId, taskId);
+    return publicTask;
   }
 
   async cancel(ownerId: string, taskId: string) {
@@ -106,7 +106,7 @@ export class TasksService {
   private async getOwnedTask(ownerId: string, taskId: string) {
     const task = await this.prisma.task.findUnique({
       where: { id: taskId },
-      include: { server: true },
+      include: { server: { select: { ownerId: true } } },
     });
     if (!task) {
       throw new NotFoundException('작업을 찾을 수 없습니다.');
