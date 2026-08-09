@@ -9,9 +9,6 @@
 ## 진행 중 / 대기 (우선순위 순)
 
 - [ ] `[화면]` P0 — **모바일 앱 화면 수정 개선 최우선 루프**: 사용자가 Codex 데스크톱 앱에서 실제 화면을 보며 지시하는 UI/UX 개선 작업을 최우선으로 처리한다. 이 작업은 Claude Code에서 지시하기 어렵기 때문에 앞으로 사용자와 Codex가 직접 진행한다. 구현 전 `mobile-app/App.tsx`, `ops/phase3/design/mobile-app-design.md`, `ops/phase3b/design/mobile-task-dispatch-design.md`를 확인하고, 구현 후 Android release build로 검증한다.
-- [ ] `[화면]` P0 — **Tasks 상세 화면 + 긴 로그/결과 UX**: Tasks 목록 카드는 요약만 보여주고, 카드를 누르면 상세 화면에서 전체 프롬프트/로그/결과를 읽게 한다. 실행 중 로그는 상세 화면에서 아래로 자동 스크롤한다. 현재 카드 안에 긴 내용을 욱여넣는 방식은 출시 UX로 부적합하므로 최우선 화면 작업이다.
-- [ ] P0 — **승인 기반 서버 등록 플로우**: 서버에서 `code-caller register`를 실행하면 Hub에 짧은 만료 시간의 등록 요청을 만들고, 모바일 앱에서 확인 코드로 승인/거절한다. 승인 시에만 `Server`와 daemon credential을 생성해 데몬에 전달한다. 사용자가 API key, `.env`, 서버 ID를 직접 다루지 않게 만드는 온보딩 구조.
-- [ ] P0 — **Worker provider/profile/capability 구조화**: 현재 `CODEX`/`CLAUDE`/`GEMINI` 고정 enum 중심 구조를 Codex, Claude Code, Antigravity, OpenCode, iPhone/Android 클라이언트 확장을 감당할 수 있는 provider/profile/capability 모델로 확장한다. New Task는 장기적으로 서버-first가 아니라 목표-first + Hub 추천 구조로 이동한다.
 - [ ] P0 — **용량 기반 자동 failover 시스템**: `hub-api/src/workers/`의 `WorkerRegistry`/`AIWorkerAdapter`에 "선호 워커 체인 + 용량 소진 감지 + 폴백" 추가. 한 워커(예: 특정 서버의 codex)가 용량 초과/장시간 무응답이면 다음 후보(예: 같은 서버의 opencode 다른 모델, 또는 다른 서버)로 자동 전환. 태스크는 멱등/재개 가능하게 설계해야 함 (재시도 시 부작용 없이 다시 실행 가능해야 함). 사용자가 2026-08-09에 "속도보다 훨씬 중요하다"고 명시한 항목.
 - [ ] `[화면]` P1 — **New Task 음성 입력**: Android/iPhone 모두를 고려해 마이크 권한과 음성 인식 라이브러리를 선택한다. 음성은 곧바로 실행하지 않고 editable prompt에 반영하며, 사용자가 확인 후 작업 실행 버튼을 누르게 한다.
 - [ ] `[화면]` P1 — **iPhone 지원 준비**: React Native iOS 빌드, Safe Area, APNs/Firebase 설정, 네트워크 권한, iOS 배포/실기기 테스트 경로를 정리한다.
@@ -34,3 +31,7 @@
 - [x] **목표 달성 확인**: 사용자가 실제 폰에서 release APK로 로그인 → New Task 탭 → 맥북 Codex에게 실제 프롬프트 전송 → COMPLETED 응답 수신까지 실기기 검증 완료 (2026-08-09)
 - [x] "문서화배포"를 로컬 Codex에게 위임 (Notion Apps 커넥터 활용, Claude 개입 불필요)
 - [x] Obsidian `Code-Caller` 폴더를 `code-caller-worklog`(private) 저장소로 GitHub 동기화, "문서화배포"에 sync 포함
+- [x] `[화면]` P0 — **Tasks 상세 화면 + 긴 로그/결과 UX**: Tasks 목록 요약화, 상세 화면, 프롬프트/결과/로그 내부 스크롤, 결과 우선 배치 — `71b42d4`, `dacb921`
+- [x] P0 — **승인 기반 서버 등록 플로우**: `npm run register` daemon CLI, Hub 등록 요청/승인 API, 모바일 승인 카드, 1회 credential 전달 — `d5e1865`
+- [x] P0 — **Worker provider/profile/capability 구조화 1차**: 서버별 `WorkerProfile` 모델과 Codex/Claude Code/Antigravity/OpenCode provider 기반 확장 토대 추가 — `d5e1865`
+- [x] `[화면]` P0 — **New Task 목표-first UX 1차**: 프롬프트를 첫 단계로 이동하고 실행 대상 요약/서버/worker 선택 순서로 재배치 — `d5e1865`
