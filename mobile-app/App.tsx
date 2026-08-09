@@ -739,6 +739,10 @@ function NewTaskScreen({
 }) {
   const canSubmit = Boolean(selectedServerId && prompt.trim()) && !busy;
   const selectedServer = servers.find(server => server.id === selectedServerId);
+  const scrollRef = useRef<ScrollView | null>(null);
+  const scrollToPrompt = useCallback(() => {
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
+  }, []);
 
   return (
     <KeyboardAvoidingView
@@ -746,6 +750,7 @@ function NewTaskScreen({
       style={styles.flex}
     >
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={styles.form}
         keyboardShouldPersistTaps="handled"
       >
@@ -828,7 +833,9 @@ function NewTaskScreen({
         ) : null}
         <TextInput
           multiline
+          onContentSizeChange={scrollToPrompt}
           onChangeText={onPromptChange}
+          onFocus={scrollToPrompt}
           placeholder="선택한 서버에서 Codex에게 시킬 일을 입력하세요."
           placeholderTextColor={colors.mutedLight}
           style={[styles.input, styles.promptInput]}
