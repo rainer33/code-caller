@@ -9,7 +9,12 @@
 ## 진행 중 / 대기 (우선순위 순)
 
 - [ ] `[화면]` P0 — **모바일 앱 화면 수정 개선 최우선 루프**: 사용자가 Codex 데스크톱 앱에서 실제 화면을 보며 지시하는 UI/UX 개선 작업을 최우선으로 처리한다. 이 작업은 Claude Code에서 지시하기 어렵기 때문에 앞으로 사용자와 Codex가 직접 진행한다. 구현 전 `mobile-app/App.tsx`, `ops/phase3/design/mobile-app-design.md`, `ops/phase3b/design/mobile-task-dispatch-design.md`를 확인하고, 구현 후 Android release build로 검증한다.
+- [ ] `[화면]` P0 — **Tasks 상세 화면 + 긴 로그/결과 UX**: Tasks 목록 카드는 요약만 보여주고, 카드를 누르면 상세 화면에서 전체 프롬프트/로그/결과를 읽게 한다. 실행 중 로그는 상세 화면에서 아래로 자동 스크롤한다. 현재 카드 안에 긴 내용을 욱여넣는 방식은 출시 UX로 부적합하므로 최우선 화면 작업이다.
+- [ ] P0 — **승인 기반 서버 등록 플로우**: 서버에서 `code-caller register`를 실행하면 Hub에 짧은 만료 시간의 등록 요청을 만들고, 모바일 앱에서 확인 코드로 승인/거절한다. 승인 시에만 `Server`와 daemon credential을 생성해 데몬에 전달한다. 사용자가 API key, `.env`, 서버 ID를 직접 다루지 않게 만드는 온보딩 구조.
+- [ ] P0 — **Worker provider/profile/capability 구조화**: 현재 `CODEX`/`CLAUDE`/`GEMINI` 고정 enum 중심 구조를 Codex, Claude Code, Antigravity, OpenCode, iPhone/Android 클라이언트 확장을 감당할 수 있는 provider/profile/capability 모델로 확장한다. New Task는 장기적으로 서버-first가 아니라 목표-first + Hub 추천 구조로 이동한다.
 - [ ] P0 — **용량 기반 자동 failover 시스템**: `hub-api/src/workers/`의 `WorkerRegistry`/`AIWorkerAdapter`에 "선호 워커 체인 + 용량 소진 감지 + 폴백" 추가. 한 워커(예: 특정 서버의 codex)가 용량 초과/장시간 무응답이면 다음 후보(예: 같은 서버의 opencode 다른 모델, 또는 다른 서버)로 자동 전환. 태스크는 멱등/재개 가능하게 설계해야 함 (재시도 시 부작용 없이 다시 실행 가능해야 함). 사용자가 2026-08-09에 "속도보다 훨씬 중요하다"고 명시한 항목.
+- [ ] `[화면]` P1 — **New Task 음성 입력**: Android/iPhone 모두를 고려해 마이크 권한과 음성 인식 라이브러리를 선택한다. 음성은 곧바로 실행하지 않고 editable prompt에 반영하며, 사용자가 확인 후 작업 실행 버튼을 누르게 한다.
+- [ ] `[화면]` P1 — **iPhone 지원 준비**: React Native iOS 빌드, Safe Area, APNs/Firebase 설정, 네트워크 권한, iOS 배포/실기기 테스트 경로를 정리한다.
 - [ ] P1 — **우분투 워커 도그푸딩**: 지금은 우분투의 codex/opencode 인스턴스를 raw SSH로 부리고 있음. 이들도 `MacBook-Local`처럼 Hub의 Server로 등록하고 `agent-daemon`을 우분투에도 올려서, 앞으로 모든 디스패치를 `POST /tasks`로 통일. SSH 직접 접근은 점진적으로 폐기.
 - [ ] P1 — **원본 4트랙 프롬프트 버전관리**: 2026-08-09 초기에 우분투 4개 워커(deploy/dev/marketing/QA)에게 즉흥적으로 줬던 프롬프트들이 세션 스크래치패드에만 있고 저장소에 없음. 재사용 가능하도록 `ops/prompts/`에 정리해서 커밋.
 - [ ] `[화면]` P2 — **모바일 앱 폴리시**: 작업 취소 버튼, 로그 tail 실시간 스트리밍 뷰, FCM 실제 전송 테스트(Firebase 서비스 계정 키가 준비되면), 에러 상태 UX 개선. `[화면]` 항목이므로 헤드리스 자동 실행이 아니라 사용자가 Codex 데스크톱 앱에서 직접 화면 보며 지시할 때 진행한다.

@@ -12,6 +12,12 @@ Hub API and agent daemon code are out of scope. The existing deployed Hub API at
 `http://172.30.1.83:3000` already supports `GET /servers`, `POST /tasks`, and
 `GET /tasks/:id`.
 
+As of the UI cleanup discussion on 2026-08-09, this workflow is still valid as
+the MVP, but it should evolve. The long-term task creation UX should let the
+user describe the goal first, then let Hub recommend or choose the best
+server/agent profile based on availability and capability. Manual server
+selection remains useful as an advanced override.
+
 ## Confirmed Decisions
 
 - Keep the current single-file React Native app shape: Phase 3 uses `App.tsx`
@@ -25,6 +31,14 @@ Hub API and agent daemon code are out of scope. The existing deployed Hub API at
 - Default `workerType` is `CODEX`: it matches the verified local daemon path.
 - On successful `POST /tasks`, reload all lists and navigate to `Tasks`: this
   verifies the new task is visible through the same list path users already use.
+- The New Task prompt field must be keyboard-safe on mobile. When the prompt is
+  focused or grows, the form should auto-scroll so the user can still see what
+  they are typing and reach the submit button.
+- Voice recognition is a future input method for this screen. It should convert
+  speech into editable prompt text, never auto-submit directly.
+- The current fixed `WorkerType` selector is acceptable for MVP, but future
+  versions should use provider/profile/capability metadata rather than a small
+  hard-coded enum.
 
 ## Architecture
 
@@ -32,7 +46,7 @@ Hub API and agent daemon code are out of scope. The existing deployed Hub API at
 [NewTaskScreen]
   select server from in-memory GET /servers result
   select workerType: CODEX | CLAUDE | GEMINI
-  enter prompt
+  enter prompt (text now, voice-to-text later)
       |
       | POST /tasks
       | body { serverId, workerType, input: { prompt } }
@@ -51,6 +65,24 @@ Socket.io remains unchanged. If the daemon progresses the task after creation,
 the existing `task:updated` listener continues to merge updates into the task
 list.
 
+Future architecture:
+
+```
+[NewTaskScreen]
+  enter goal/prompt first
+  optional: choose provider/profile/capability or accept Hub recommendation
+  optional: override server
+      |
+      | POST /tasks
+      | body { goal/input, preferredProfile?, preferredServerId? }
+      v
+[Hub routing]
+  choose registered daemon with matching capability and capacity
+      |
+      v
+[agent-daemon]
+```
+
 ## Component Breakdown
 
 `App` owns the new `createTask` callback, task form state reset after success,
@@ -67,6 +99,10 @@ instead of adding dependencies.
 `ServersList`, `TasksList`, and `ApprovalsList` remain read-only except for the
 existing approval decision callback.
 
+`NewTaskScreen` uses scroll-aware keyboard handling. Prompt focus and text
+growth should move the form toward the prompt/submit area rather than leaving
+the user typing behind the keyboard or bottom navigation.
+
 ## Data Model
 
 Existing client shapes are reused:
@@ -77,6 +113,11 @@ Existing client shapes are reused:
 New client-only type:
 
 - `WorkerType`: `"CODEX" | "CLAUDE" | "GEMINI"`
+
+Planned replacement:
+
+- `WorkerProfile`: provider (`codex`, `claude-code`, `antigravity`,
+  `opencode`), profile/model, capabilities, and optional server constraints.
 
 Task creation request body:
 
@@ -94,6 +135,14 @@ editable + non-empty prompt + selected server -> submittable
 submitting -> disabled controls
 success -> reset form -> Tasks tab
 failure -> editable with error message preserved
+```
+
+Voice input state, when added:
+
+```
+idle -> listening -> transcript ready -> editable prompt -> submit
+idle -> permission denied -> editable prompt
+listening -> cancelled -> editable prompt
 ```
 
 Task lifecycle remains owned by Hub/daemon:
@@ -115,6 +164,13 @@ REST added to the mobile app:
   - body: `{ "serverId": string, "workerType": "CODEX"|"CLAUDE"|"GEMINI", "input": { "prompt": string } }`
   - response: `TaskItem`
 
+Future task creation contract should support recommendation/routing without
+forcing users to understand server placement:
+
+- `POST /tasks`
+  - body: `{ "input": { "prompt": string }, "preferredProfileId"?: string, "preferredServerId"?: string }`
+  - Hub validates capability and capacity before dispatch.
+
 Live verification-only REST:
 
 - `GET /tasks/:id` -> `TaskItem`
@@ -127,6 +183,9 @@ Live verification-only REST:
 - `MacBook-Local` remains registered and connected during live verification.
 - Android SDK paths from Phase 3 are still present under the user's local SDK
   directory.
+- The current server list is API-backed, but server onboarding remains too
+  manual. Future releases should add `code-caller register` plus mobile approval
+  before task dispatch UX is considered product-complete.
 
 ## Roadmap
 
@@ -139,6 +198,15 @@ Live verification-only REST:
    `GET /tasks/:id` until terminal.
 5. Android build: rebuild debug APK.
 6. Commit and final report with `PHASE3B_DONE` as the last line.
+
+## Follow-up UX Roadmap
+
+1. Add a Task Detail screen before trying to show large prompts, logs, and
+   results inside list cards.
+2. Keep New Task keyboard-safe with auto-scroll, and later add microphone
+   input as a text-entry helper.
+3. Replace hard-coded server-first task creation with goal-first creation and
+   Hub recommendation once provider/profile/capability routing exists.
 
 ## Verification Plan
 
