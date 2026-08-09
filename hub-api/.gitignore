@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .env
+.env.deployment-secrets
 *.log
 *.rdb
 fcm-service-account.json

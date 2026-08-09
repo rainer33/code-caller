@@ -1,0 +1,12 @@
+[Unit]
+Description=Code Caller local Redis
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/home/jahmin/.local/share/code-caller/redis/bin/redis-server --bind 127.0.0.1 --port 6379 --dir /home/jahmin/.local/share/code-caller/redis-data --appendonly yes --daemonize no
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

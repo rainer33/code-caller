@@ -1,0 +1,12 @@
+[Unit]
+Description=Code Caller local PostgreSQL
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/home/jahmin/.local/share/code-caller/postgres16/bin/postgres -D /home/jahmin/.local/share/code-caller/postgres-data
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

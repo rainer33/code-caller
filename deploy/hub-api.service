@@ -1,0 +1,15 @@
+[Unit]
+Description=Code Caller Hub API
+Requires=code-caller-postgres.service code-caller-redis.service
+After=network.target code-caller-postgres.service code-caller-redis.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/jahmin/awork/code-caller/hub-api
+EnvironmentFile=/home/jahmin/awork/code-caller/hub-api/.env
+ExecStart=/usr/bin/node /home/jahmin/awork/code-caller/hub-api/dist/src/main.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
