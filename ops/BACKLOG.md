@@ -1,0 +1,30 @@
+# Code Caller Backlog
+
+이 파일은 code-caller 프로젝트의 살아있는 작업 목록이다. **누가 다음에 무엇을 해야 하는지**를 여기서 결정한다 — Claude에게 다시 묻지 않아도 되도록, `ops/prompts/codex-standing-commander.md`가 매 실행마다 이 파일을 읽고 가장 우선순위 높은 미완료 항목을 스스로 골라 진행한다.
+
+`[화면]` 표시가 붙은 항목은 모바일 앱 UI/UX 작업이다 — 사용자가 Codex 데스크톱 앱으로 이 저장소를 직접 열어 화면을 보면서 실시간으로 지시하는 방식으로 진행하며, 헤드리스 자동 실행(launchd)은 이 항목들을 절대 스스로 고르지 않는다. 배경은 `ops/HANDOFF.md` 참고.
+
+형식: 각 항목은 `[ ]`(미완료)/`[x]`(완료) 체크박스, 우선순위(P0가 가장 높음), 한 줄 설명. 완료 시 체크만 하지 말고 관련 커밋 해시를 옆에 남긴다. 완료된 항목은 지우지 말고 아래로 내려서 이력으로 남긴다.
+
+## 진행 중 / 대기 (우선순위 순)
+
+- [ ] P0 — **용량 기반 자동 failover 시스템**: `hub-api/src/workers/`의 `WorkerRegistry`/`AIWorkerAdapter`에 "선호 워커 체인 + 용량 소진 감지 + 폴백" 추가. 한 워커(예: 특정 서버의 codex)가 용량 초과/장시간 무응답이면 다음 후보(예: 같은 서버의 opencode 다른 모델, 또는 다른 서버)로 자동 전환. 태스크는 멱등/재개 가능하게 설계해야 함 (재시도 시 부작용 없이 다시 실행 가능해야 함). 사용자가 2026-08-09에 "속도보다 훨씬 중요하다"고 명시한 항목.
+- [ ] P1 — **우분투 워커 도그푸딩**: 지금은 우분투의 codex/opencode 인스턴스를 raw SSH로 부리고 있음. 이들도 `MacBook-Local`처럼 Hub의 Server로 등록하고 `agent-daemon`을 우분투에도 올려서, 앞으로 모든 디스패치를 `POST /tasks`로 통일. SSH 직접 접근은 점진적으로 폐기.
+- [ ] P1 — **원본 4트랙 프롬프트 버전관리**: 2026-08-09 초기에 우분투 4개 워커(deploy/dev/marketing/QA)에게 즉흥적으로 줬던 프롬프트들이 세션 스크래치패드에만 있고 저장소에 없음. 재사용 가능하도록 `ops/prompts/`에 정리해서 커밋.
+- [ ] `[화면]` P2 — **모바일 앱 폴리시**: 작업 취소 버튼, 로그 tail 실시간 스트리밍 뷰, FCM 실제 전송 테스트(Firebase 서비스 계정 키가 준비되면), 에러 상태 UX 개선. `[화면]` 항목이므로 헤드리스 자동 실행이 아니라 사용자가 Codex 데스크톱 앱에서 직접 화면 보며 지시할 때 진행한다.
+- [ ] P2 — **QA 회귀 테스트**: Phase 3/3b, 맥북 daemon 등록, network security 픽스 이후로 전체 흑박스/통합 테스트를 다시 돌려서 회귀 확인 (`BUGS.md` 갱신).
+- [ ] P3 — **마케팅 후속**: `MARKETING.md` 초안 이후 실제 커뮤니티 포스팅 여부 확인, 반응 있으면 후속 정리.
+
+## 완료 (이력)
+
+- [x] Phase 1 — Hub API (NestJS+Prisma+Socket.io) 스캐폴딩 및 우분투 배포 — `main`
+- [x] Phase 2 — Agent Daemon (Codex spawn+파싱) — `main`
+- [x] `GET /tasks/:id`에서 `server.apiKeyHash` 노출되던 취약점 수정 — `c09337c`
+- [x] Phase 3 — 안드로이드 모바일 앱 (로그인/서버/작업/승인/FCM 등록) — Codex가 지휘, Claude가 최종 검수 — `c7f2b4e`
+- [x] `agent-daemon`이 `codex exec` 스폰 시 stdin에서 영원히 멈추는 데드락 수정 — `9ea13ff`
+- [x] 이 맥북을 Hub에 `MacBook-Local` Server로 등록 + `agent-daemon` launchd 상시 서비스화, 실제 태스크 디스패치 종단 검증
+- [x] Phase 3B — 모바일 앱에 "새 작업 생성/디스패치" 화면 추가 — `219aab7`, 라이브 검증 `1af0718`
+- [x] 릴리즈 APK가 Hub(평문 HTTP)에 접속 못 하던 cleartext 차단 문제 수정 (`network_security_config.xml`) — `5532e0c`
+- [x] **목표 달성 확인**: 사용자가 실제 폰에서 release APK로 로그인 → New Task 탭 → 맥북 Codex에게 실제 프롬프트 전송 → COMPLETED 응답 수신까지 실기기 검증 완료 (2026-08-09)
+- [x] "문서화배포"를 로컬 Codex에게 위임 (Notion Apps 커넥터 활용, Claude 개입 불필요)
+- [x] Obsidian `Code-Caller` 폴더를 `code-caller-worklog`(private) 저장소로 GitHub 동기화, "문서화배포"에 sync 포함
