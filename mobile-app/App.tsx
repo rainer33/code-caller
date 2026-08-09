@@ -74,6 +74,40 @@ type Tab = 'servers' | 'newTask' | 'tasks' | 'approvals';
 
 const WORKER_TYPES: WorkerType[] = ['CODEX', 'CLAUDE', 'GEMINI'];
 
+const TABS: Array<{
+  key: Tab;
+  label: string;
+  icon: string;
+  count?: 'servers' | 'tasks' | 'approvals';
+}> = [
+  { key: 'servers', label: 'Servers', icon: 'S', count: 'servers' },
+  { key: 'newTask', label: 'New', icon: '+' },
+  { key: 'tasks', label: 'Tasks', icon: 'T', count: 'tasks' },
+  { key: 'approvals', label: 'Approvals', icon: 'A', count: 'approvals' },
+];
+
+const colors = {
+  bg: '#f3f6fa',
+  surface: '#ffffff',
+  surfaceAlt: '#eef3f8',
+  border: '#d9e1ea',
+  text: '#111827',
+  textSoft: '#4b5563',
+  muted: '#6b7280',
+  mutedLight: '#9ca3af',
+  primary: '#1d4ed8',
+  primarySoft: '#dbeafe',
+  success: '#15803d',
+  successSoft: '#dcfce7',
+  warning: '#b45309',
+  warningSoft: '#fef3c7',
+  danger: '#b91c1c',
+  dangerSoft: '#fee2e2',
+  offline: '#64748b',
+  offlineSoft: '#e2e8f0',
+  dark: '#111827',
+};
+
 async function parseJson(response: Response) {
   const text = await response.text();
   if (!text) {
@@ -84,9 +118,35 @@ async function parseJson(response: Response) {
 
 function formatDate(value?: string | null) {
   if (!value) {
-    return 'n/a';
+    return '기록 없음';
   }
-  return new Date(value).toLocaleString();
+  const date = new Date(value);
+  return date.toLocaleString('ko-KR', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function formatRelativeTime(value?: string | null) {
+  if (!value) {
+    return '기록 없음';
+  }
+  const date = new Date(value);
+  const diffMs = Date.now() - date.getTime();
+  const diffMinutes = Math.floor(diffMs / 60000);
+  if (diffMinutes < 1) {
+    return '방금 전';
+  }
+  if (diffMinutes < 60) {
+    return `${diffMinutes}분 전`;
+  }
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) {
+    return `${diffHours}시간 전`;
+  }
+  return formatDate(value);
 }
 
 function summarize(value: unknown) {
@@ -101,6 +161,117 @@ function summarize(value: unknown) {
   } catch {
     return String(value);
   }
+}
+
+function extractPrompt(input: unknown) {
+  if (
+    input &&
+    typeof input === 'object' &&
+    !Array.isArray(input) &&
+    'prompt' in input
+  ) {
+    const promptValue = (input as { prompt?: unknown }).prompt;
+    return summarize(promptValue);
+  }
+  return summarize(input);
+}
+
+function compactId(value?: string | null) {
+  if (!value) {
+    return 'n/a';
+  }
+  if (value.length <= 14) {
+    return value;
+  }
+  return `${value.slice(0, 8)}...${value.slice(-4)}`;
+}
+
+function normalizeStatus(value: string) {
+  const status = value.toUpperCase();
+  if (status.includes('CONNECTED')) {
+    return {
+      label: 'Connected',
+      tone: 'success' as const,
+    };
+  }
+  if (status.includes('ONLINE')) {
+    return {
+      label: 'Online',
+      tone: 'success' as const,
+    };
+  }
+  if (status.includes('RUNNING') || status.includes('QUEUED')) {
+    return {
+      label: status.includes('QUEUED') ? '대기 중' : '실행 중',
+      tone: 'info' as const,
+    };
+  }
+  if (status.includes('AWAITING_APPROVAL') || status.includes('PENDING')) {
+    return {
+      label: status.includes('PENDING') ? '승인 대기' : '승인 대기',
+      tone: 'warning' as const,
+    };
+  }
+  if (status.includes('COMPLETED') || status.includes('APPROVED')) {
+    return {
+      label: status.includes('APPROVED') ? '승인됨' : '완료',
+      tone: 'success' as const,
+    };
+  }
+  if (status.includes('FAILED') || status.includes('ERROR')) {
+    return {
+      label: '실패',
+      tone: 'danger' as const,
+    };
+  }
+  if (
+    status.includes('OFFLINE') ||
+    status.includes('DISCONNECTED') ||
+    status.includes('CANCELLED') ||
+    status.includes('REJECTED')
+  ) {
+    return {
+      label: status.includes('REJECTED')
+        ? '거절됨'
+        : status.includes('CANCELLED')
+        ? '취소됨'
+        : 'Offline',
+      tone: 'neutral' as const,
+    };
+  }
+  return {
+    label: value,
+    tone: 'neutral' as const,
+  };
+}
+
+function pushSummary(pushState: string) {
+  if (pushState.startsWith('registered')) {
+    return {
+      title: '푸시 알림 켜짐',
+      detail: pushState.replace('registered ', '토큰 '),
+      tone: 'success' as const,
+    };
+  }
+  if (pushState.includes('requesting')) {
+    return {
+      title: '푸시 알림 등록 중',
+      detail: '기기 토큰을 확인하고 있습니다.',
+      tone: 'info' as const,
+    };
+  }
+  if (pushState.includes('unavailable')) {
+    return {
+      title: '알림을 사용할 수 없음',
+      detail: 'Firebase 설정을 확인한 뒤 다시 시도하세요.',
+      tone: 'warning' as const,
+    };
+  }
+  return {
+    title: '푸시 알림 꺼짐',
+    detail: '승인 요청 알림을 받으려면 등록하세요.',
+    tone: 'neutral' as const,
+  };
 }
 
 export default function App() {
@@ -382,7 +553,13 @@ export default function App() {
 
   const content = useMemo(() => {
     if (tab === 'servers') {
-      return <ServersList servers={servers} />;
+      return (
+        <ServersList
+          onSelectedServerChange={setSelectedServerId}
+          selectedServerId={selectedServerId}
+          servers={servers}
+        />
+      );
     }
     if (tab === 'newTask') {
       return (
@@ -420,7 +597,7 @@ export default function App() {
     return (
       <SafeAreaView style={styles.center}>
         <ActivityIndicator />
-        <Text style={styles.muted}>Restoring session</Text>
+        <Text style={styles.muted}>세션을 복원하는 중</Text>
       </SafeAreaView>
     );
   }
@@ -433,8 +610,8 @@ export default function App() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.loginPane}
         >
-          <Text style={styles.title}>Code Caller</Text>
-          <Text style={styles.subtitle}>Hub API: {API_BASE_URL}</Text>
+          <Text style={styles.loginTitle}>Code Caller</Text>
+          <Text style={styles.loginSubtitle}>Hub API: {API_BASE_URL}</Text>
           <TextInput
             autoCapitalize="none"
             keyboardType="email-address"
@@ -456,64 +633,71 @@ export default function App() {
             onPress={login}
           />
           {busy ? <ActivityIndicator style={styles.inlineSpinner} /> : null}
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {error ? <ErrorBanner message={error} /> : null}
         </KeyboardAvoidingView>
       </SafeAreaView>
     );
   }
 
+  const socket = normalizeStatus(socketState);
+  const push = pushSummary(pushState);
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="dark-content" />
       <View style={styles.header}>
-        <View>
+        <View style={styles.headerTitleGroup}>
           <Text style={styles.title}>Code Caller</Text>
-          <Text style={styles.subtitle}>Socket: {socketState}</Text>
+          <View style={styles.connectionRow}>
+            <View
+              style={[
+                styles.statusDot,
+                socket.tone === 'success'
+                  ? styles.statusDotSuccess
+                  : socket.tone === 'danger'
+                  ? styles.statusDotDanger
+                  : styles.statusDotWarning,
+              ]}
+            />
+            <Text style={styles.connectionText}>{socket.label}</Text>
+          </View>
         </View>
-        <Pressable onPress={logout} style={styles.secondaryButton}>
-          <Text style={styles.secondaryButtonText}>Logout</Text>
+        <View style={styles.headerActions}>
+          <Pressable
+            disabled={busy}
+            onPress={loadAll}
+            style={styles.iconButton}
+          >
+            <Text style={styles.iconButtonText}>{busy ? '...' : 'R'}</Text>
+          </Pressable>
+          <Pressable onPress={logout} style={styles.logoutButton}>
+            <Text style={styles.logoutButtonText}>Logout</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      <View style={styles.pushCard}>
+        <View style={styles.pushTextGroup}>
+          <Text style={styles.pushTitle}>{push.title}</Text>
+          <Text style={styles.pushDetail} numberOfLines={1}>
+            {push.detail}
+          </Text>
+        </View>
+        <Pressable onPress={registerPushToken} style={styles.smallButton}>
+          <Text style={styles.smallButtonText}>등록</Text>
         </Pressable>
       </View>
 
-      <View style={styles.tabs}>
-        <TabButton
-          active={tab === 'servers'}
-          label={`Servers (${servers.length})`}
-          onPress={() => setTab('servers')}
-        />
-        <TabButton
-          active={tab === 'newTask'}
-          label="New Task"
-          onPress={() => setTab('newTask')}
-        />
-        <TabButton
-          active={tab === 'tasks'}
-          label={`Tasks (${tasks.length})`}
-          onPress={() => setTab('tasks')}
-        />
-        <TabButton
-          active={tab === 'approvals'}
-          label={`Approvals (${approvals.length})`}
-          onPress={() => setTab('approvals')}
-        />
-      </View>
-
-      <View style={styles.toolbar}>
-        <Pressable
-          disabled={busy}
-          onPress={loadAll}
-          style={styles.secondaryButton}
-        >
-          <Text style={styles.secondaryButtonText}>Refresh</Text>
-        </Pressable>
-        <Pressable onPress={registerPushToken} style={styles.secondaryButton}>
-          <Text style={styles.secondaryButtonText}>Register FCM</Text>
-        </Pressable>
-      </View>
-      <Text style={styles.pushState}>Push: {pushState}</Text>
+      {error ? <ErrorBanner message={error} /> : null}
       {busy ? <ActivityIndicator style={styles.inlineSpinner} /> : null}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      {content}
+      <View style={styles.content}>{content}</View>
+      <BottomNavigation
+        activeTab={tab}
+        approvalsCount={approvals.length}
+        onChange={setTab}
+        serversCount={servers.length}
+        tasksCount={tasks.length}
+      />
     </SafeAreaView>
   );
 }
@@ -540,106 +724,158 @@ function NewTaskScreen({
   workerType: WorkerType;
 }) {
   const canSubmit = Boolean(selectedServerId && prompt.trim()) && !busy;
+  const selectedServer = servers.find(server => server.id === selectedServerId);
 
   return (
-    <ScrollView contentContainerStyle={styles.form}>
-      <Text style={styles.sectionLabel}>Target server</Text>
-      {servers.length === 0 ? (
-        <EmptyState label="Refresh servers before creating a task" />
-      ) : (
-        servers.map(server => (
-          <Pressable
-            key={server.id}
-            onPress={() => onSelectedServerChange(server.id)}
-            style={[
-              styles.optionButton,
-              selectedServerId === server.id && styles.optionButtonActive,
-            ]}
-          >
-            <View style={styles.optionMain}>
-              <Text
-                style={[
-                  styles.optionTitle,
-                  selectedServerId === server.id && styles.optionTitleActive,
-                ]}
-              >
-                {server.name}
-              </Text>
-              <Text
-                style={[
-                  styles.optionMeta,
-                  selectedServerId === server.id && styles.optionMetaActive,
-                ]}
-              >
-                {server.osType} / {server.tailscaleIp}
-              </Text>
-            </View>
-            <StatusPill label={server.status} />
-          </Pressable>
-        ))
-      )}
-
-      <Text style={styles.sectionLabel}>Worker</Text>
-      <View style={styles.segmentRow}>
-        {WORKER_TYPES.map(item => (
-          <Pressable
-            key={item}
-            onPress={() => onWorkerTypeChange(item)}
-            style={[
-              styles.segmentButton,
-              workerType === item && styles.segmentButtonActive,
-            ]}
-          >
-            <Text
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={styles.flex}
+    >
+      <ScrollView
+        contentContainerStyle={styles.form}
+        keyboardShouldPersistTaps="handled"
+      >
+        <ScreenHeading
+          subtitle="실행할 서버와 작업 내용을 순서대로 선택하세요."
+          title="새 작업"
+        />
+        <Text style={styles.sectionLabel}>1. 실행 서버</Text>
+        {servers.length === 0 ? (
+          <EmptyState label="서버를 불러온 뒤 작업을 만들 수 있습니다." />
+        ) : (
+          servers.map(server => (
+            <Pressable
+              key={server.id}
+              onPress={() => onSelectedServerChange(server.id)}
               style={[
-                styles.segmentText,
-                workerType === item && styles.segmentTextActive,
+                styles.optionButton,
+                selectedServerId === server.id && styles.optionButtonActive,
               ]}
             >
-              {item}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+              <View style={styles.optionMain}>
+                <Text
+                  style={[
+                    styles.optionTitle,
+                    selectedServerId === server.id && styles.optionTitleActive,
+                  ]}
+                >
+                  {server.name}
+                </Text>
+                <Text
+                  style={[
+                    styles.optionMeta,
+                    selectedServerId === server.id && styles.optionMetaActive,
+                  ]}
+                >
+                  {server.osType} / {server.tailscaleIp}
+                </Text>
+              </View>
+              <View style={styles.optionRight}>
+                {selectedServerId === server.id ? (
+                  <Text style={styles.selectedMark}>Selected</Text>
+                ) : null}
+                <StatusPill label={server.status} />
+              </View>
+            </Pressable>
+          ))
+        )}
 
-      <Text style={styles.sectionLabel}>Prompt</Text>
-      <TextInput
-        multiline
-        onChangeText={onPromptChange}
-        placeholder="Ask Codex what to do on the selected server"
-        style={[styles.input, styles.promptInput]}
-        textAlignVertical="top"
-        value={prompt}
-      />
-      <PrimaryButton
-        disabled={!canSubmit}
-        label={busy ? 'Submitting' : 'Dispatch Task'}
-        onPress={onSubmit}
-      />
-    </ScrollView>
+        <Text style={styles.sectionLabel}>2. AI Worker</Text>
+        <View style={styles.segmentRow}>
+          {WORKER_TYPES.map(item => (
+            <Pressable
+              key={item}
+              onPress={() => onWorkerTypeChange(item)}
+              style={[
+                styles.segmentButton,
+                workerType === item && styles.segmentButtonActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.segmentText,
+                  workerType === item && styles.segmentTextActive,
+                ]}
+              >
+                {item}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <View style={styles.promptHeader}>
+          <Text style={styles.sectionLabel}>3. 작업 내용</Text>
+          <Text style={styles.counterText}>{prompt.length}자</Text>
+        </View>
+        {selectedServer ? (
+          <Text style={styles.helperText}>
+            선택됨: {selectedServer.name} / {selectedServer.osType}
+          </Text>
+        ) : null}
+        <TextInput
+          multiline
+          onChangeText={onPromptChange}
+          placeholder="선택한 서버에서 Codex에게 시킬 일을 입력하세요."
+          placeholderTextColor={colors.mutedLight}
+          style={[styles.input, styles.promptInput]}
+          textAlignVertical="top"
+          value={prompt}
+        />
+        <PrimaryButton
+          disabled={!canSubmit}
+          label={busy ? '전송 중' : '작업 실행'}
+          onPress={onSubmit}
+        />
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
-function ServersList({ servers }: { servers: ServerItem[] }) {
+function ServersList({
+  onSelectedServerChange,
+  selectedServerId,
+  servers,
+}: {
+  onSelectedServerChange: (value: string) => void;
+  selectedServerId: string | null;
+  servers: ServerItem[];
+}) {
   return (
     <FlatList
       contentContainerStyle={styles.list}
       data={servers}
       keyExtractor={item => item.id}
-      ListEmptyComponent={<EmptyState label="No servers returned by Hub API" />}
+      ListHeaderComponent={
+        <ScreenHeading
+          subtitle="작업을 실행할 수 있는 워커 서버 상태입니다."
+          title="서버"
+        />
+      }
+      ListEmptyComponent={<EmptyState label="등록된 서버가 없습니다." />}
       renderItem={({ item }) => (
-        <View style={styles.card}>
+        <Pressable
+          onPress={() => onSelectedServerChange(item.id)}
+          style={[
+            styles.card,
+            selectedServerId === item.id && styles.selectedCard,
+          ]}
+        >
           <View style={styles.row}>
-            <Text style={styles.cardTitle}>{item.name}</Text>
+            <View style={styles.cardTitleGroup}>
+              <Text style={styles.cardTitle} numberOfLines={1}>
+                {item.name}
+              </Text>
+              <Text style={styles.meta}>
+                {item.osType} / {item.tailscaleIp}
+              </Text>
+            </View>
             <StatusPill label={item.status} />
           </View>
-          <Text style={styles.meta}>
-            {item.osType} / {item.tailscaleIp}
+          <Text style={styles.footerMeta}>
+            마지막 연결 {formatRelativeTime(item.lastHeartbeatAt)}
+            {selectedServerId === item.id ? ' / 기본 실행 대상' : ''}
           </Text>
-          <Text style={styles.meta}>
-            Last heartbeat: {formatDate(item.lastHeartbeatAt)}
-          </Text>
-        </View>
+        </Pressable>
       )}
     />
   );
@@ -651,28 +887,41 @@ function TasksList({ tasks }: { tasks: TaskItem[] }) {
       contentContainerStyle={styles.list}
       data={tasks}
       keyExtractor={item => item.id}
-      ListEmptyComponent={<EmptyState label="No tasks returned by Hub API" />}
+      ListHeaderComponent={
+        <ScreenHeading
+          subtitle="최근 작업의 상태와 마지막 로그를 확인하세요."
+          title="작업"
+        />
+      }
+      ListEmptyComponent={<EmptyState label="아직 생성된 작업이 없습니다." />}
       renderItem={({ item }) => (
         <View style={styles.card}>
           <View style={styles.row}>
-            <Text style={styles.cardTitle}>{item.workerType}</Text>
+            <Text style={styles.cardTitle} numberOfLines={1}>
+              {item.workerType}
+            </Text>
             <StatusPill label={item.status} />
           </View>
-          <Text style={styles.meta}>Task: {item.id}</Text>
-          <Text style={styles.meta}>Server: {item.serverId}</Text>
-          <Text style={styles.bodyText} numberOfLines={3}>
-            Input: {summarize(item.input)}
-          </Text>
+          <InfoBlock
+            label="프롬프트"
+            lines={2}
+            value={extractPrompt(item.input) || '입력 내용 없음'}
+          />
           {item.logs ? (
-            <Text style={styles.bodyText} numberOfLines={4}>
-              Logs: {item.logs}
-            </Text>
+            <InfoBlock label="최근 로그" lines={3} value={item.logs} />
           ) : null}
           {item.result ? (
-            <Text style={styles.bodyText} numberOfLines={4}>
-              Result: {summarize(item.result)}
-            </Text>
+            <InfoBlock label="결과" lines={3} value={summarize(item.result)} />
           ) : null}
+          <View style={styles.metaGrid}>
+            <Text style={styles.footerMeta}>Task {compactId(item.id)}</Text>
+            <Text style={styles.footerMeta}>
+              Server {compactId(item.serverId)}
+            </Text>
+            <Text style={styles.footerMeta}>
+              요청 {formatDate(item.createdAt)}
+            </Text>
+          </View>
         </View>
       )}
     />
@@ -691,38 +940,59 @@ function ApprovalsList({
       contentContainerStyle={styles.list}
       data={approvals.filter(item => item.status === 'PENDING')}
       keyExtractor={item => item.id}
-      ListEmptyComponent={<EmptyState label="No pending approvals" />}
+      ListHeaderComponent={
+        <ScreenHeading
+          subtitle="대기 중인 승인 요청을 검토하고 결정하세요."
+          title="승인"
+        />
+      }
+      ListEmptyComponent={
+        <EmptyState label="대기 중인 승인 요청이 없습니다." />
+      }
       renderItem={({ item }) => (
         <View style={styles.card}>
           <View style={styles.row}>
-            <Text style={styles.cardTitle}>Approval</Text>
+            <Text style={styles.cardTitle} numberOfLines={1}>
+              승인 요청
+            </Text>
             <StatusPill label={item.status} />
           </View>
-          <Text style={styles.meta}>Task: {item.taskId}</Text>
-          <Text style={styles.meta}>
-            Requested: {formatDate(item.requestedAt)}
-          </Text>
-          <ScrollView style={styles.reasonBox}>
-            <Text style={styles.bodyText}>
-              {item.reason || 'No reason supplied'}
+          <View style={styles.approvalContext}>
+            <Text style={styles.footerMeta}>
+              Task {compactId(item.taskId)} / 요청{' '}
+              {formatDate(item.requestedAt)}
             </Text>
-          </ScrollView>
+            {item.task ? (
+              <Text style={styles.footerMeta}>
+                {item.task.workerType} / Server {compactId(item.task.serverId)}
+              </Text>
+            ) : null}
+          </View>
+          <InfoBlock
+            label="요청 내용"
+            lines={3}
+            value={item.reason || '승인 요청 사유가 없습니다.'}
+          />
           <View style={styles.actionRow}>
             <PrimaryButton
-              label="Approve"
+              label="승인"
               onPress={() => onDecision(item, true)}
             />
             <DangerButton
-              label="Reject"
+              label="거절"
               onPress={() => {
-                Alert.alert('Reject approval?', item.reason || item.taskId, [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Reject',
-                    style: 'destructive',
-                    onPress: () => onDecision(item, false),
-                  },
-                ]);
+                Alert.alert(
+                  '승인 요청을 거절할까요?',
+                  item.reason || item.taskId,
+                  [
+                    { text: '취소', style: 'cancel' },
+                    {
+                      text: '거절',
+                      style: 'destructive',
+                      onPress: () => onDecision(item, false),
+                    },
+                  ],
+                );
               }}
             />
           </View>
@@ -733,35 +1003,141 @@ function ApprovalsList({
 }
 
 function EmptyState({ label }: { label: string }) {
-  return <Text style={styles.empty}>{label}</Text>;
-}
-
-function StatusPill({ label }: { label: string }) {
   return (
-    <View style={styles.pill}>
-      <Text style={styles.pillText}>{label}</Text>
+    <View style={styles.emptyCard}>
+      <Text style={styles.emptyTitle}>{label}</Text>
+      <Text style={styles.emptyText}>
+        새로고침하거나 다른 화면에서 작업을 생성하세요.
+      </Text>
     </View>
   );
 }
 
-function TabButton({
-  active,
-  label,
-  onPress,
+function StatusPill({ label }: { label: string }) {
+  const status = normalizeStatus(label);
+  return (
+    <View
+      style={[
+        styles.pill,
+        status.tone === 'success' && styles.pillSuccess,
+        status.tone === 'warning' && styles.pillWarning,
+        status.tone === 'danger' && styles.pillDanger,
+        status.tone === 'info' && styles.pillInfo,
+        status.tone === 'neutral' && styles.pillNeutral,
+      ]}
+    >
+      <Text
+        style={[
+          styles.pillText,
+          status.tone === 'success' && styles.pillTextSuccess,
+          status.tone === 'warning' && styles.pillTextWarning,
+          status.tone === 'danger' && styles.pillTextDanger,
+          status.tone === 'info' && styles.pillTextInfo,
+          status.tone === 'neutral' && styles.pillTextNeutral,
+        ]}
+      >
+        {status.label}
+      </Text>
+    </View>
+  );
+}
+
+function ScreenHeading({
+  subtitle,
+  title,
 }: {
-  active: boolean;
-  label: string;
-  onPress: () => void;
+  subtitle: string;
+  title: string;
 }) {
   return (
-    <Pressable
-      onPress={onPress}
-      style={[styles.tabButton, active && styles.tabButtonActive]}
-    >
-      <Text style={[styles.tabText, active && styles.tabTextActive]}>
-        {label}
+    <View style={styles.screenHeading}>
+      <Text style={styles.screenTitle}>{title}</Text>
+      <Text style={styles.screenSubtitle}>{subtitle}</Text>
+    </View>
+  );
+}
+
+function InfoBlock({
+  label,
+  lines,
+  value,
+}: {
+  label: string;
+  lines: number;
+  value: string;
+}) {
+  return (
+    <View style={styles.infoBlock}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoValue} numberOfLines={lines}>
+        {value}
       </Text>
-    </Pressable>
+    </View>
+  );
+}
+
+function ErrorBanner({ message }: { message: string }) {
+  return (
+    <View style={styles.errorBanner}>
+      <View style={styles.errorTextGroup}>
+        <Text style={styles.errorTitle}>요청을 처리하지 못했습니다</Text>
+        <Text style={styles.errorDetail} numberOfLines={2}>
+          {message}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function BottomNavigation({
+  activeTab,
+  approvalsCount,
+  onChange,
+  serversCount,
+  tasksCount,
+}: {
+  activeTab: Tab;
+  approvalsCount: number;
+  onChange: (tab: Tab) => void;
+  serversCount: number;
+  tasksCount: number;
+}) {
+  const counts = {
+    servers: serversCount,
+    tasks: tasksCount,
+    approvals: approvalsCount,
+  };
+
+  return (
+    <View style={styles.bottomNav}>
+      {TABS.map(item => {
+        const active = activeTab === item.key;
+        const count = item.count ? counts[item.count] : undefined;
+        return (
+          <Pressable
+            key={item.key}
+            onPress={() => onChange(item.key)}
+            style={[styles.navItem, active && styles.navItemActive]}
+          >
+            <View style={styles.navIconWrap}>
+              <Text style={[styles.navIcon, active && styles.navIconActive]}>
+                {item.icon}
+              </Text>
+              {typeof count === 'number' && count > 0 ? (
+                <View style={styles.navBadge}>
+                  <Text style={styles.navBadgeText}>
+                    {count > 99 ? '99+' : count}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+            <Text style={[styles.navLabel, active && styles.navLabelActive]}>
+              {item.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
@@ -801,12 +1177,15 @@ function DangerButton({
 
 const styles = StyleSheet.create({
   root: {
+    backgroundColor: colors.bg,
     flex: 1,
-    backgroundColor: '#f5f7fa',
+  },
+  flex: {
+    flex: 1,
   },
   center: {
     alignItems: 'center',
-    backgroundColor: '#f5f7fa',
+    backgroundColor: colors.bg,
     flex: 1,
     justifyContent: 'center',
   },
@@ -815,206 +1194,377 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 24,
   },
+  loginTitle: {
+    color: colors.text,
+    fontFamily: 'sans-serif',
+    fontSize: 30,
+    fontWeight: '800',
+    letterSpacing: 0,
+  },
+  loginSubtitle: {
+    color: colors.muted,
+    fontFamily: 'sans-serif',
+    fontSize: 13,
+    marginBottom: 18,
+    marginTop: 6,
+  },
   header: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 8,
+  },
+  headerTitleGroup: {
+    flex: 1,
+    minWidth: 0,
+  },
+  headerActions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
   },
   title: {
-    color: '#151a21',
-    fontSize: 28,
-    fontWeight: '700',
+    color: colors.text,
+    fontFamily: 'sans-serif',
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: 0,
   },
-  subtitle: {
-    color: '#687385',
-    fontSize: 13,
+  connectionRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
     marginTop: 4,
   },
-  input: {
-    backgroundColor: '#ffffff',
-    borderColor: '#d5dbe5',
-    borderRadius: 8,
-    borderWidth: 1,
-    color: '#151a21',
-    fontSize: 16,
-    marginTop: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+  statusDot: {
+    borderRadius: 999,
+    height: 8,
+    width: 8,
   },
-  primaryButton: {
-    alignItems: 'center',
-    backgroundColor: '#1769e0',
-    borderRadius: 8,
-    flex: 1,
-    marginTop: 16,
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingHorizontal: 16,
+  statusDotSuccess: {
+    backgroundColor: colors.success,
   },
-  primaryButtonText: {
-    color: '#ffffff',
-    fontSize: 15,
+  statusDotWarning: {
+    backgroundColor: colors.warning,
+  },
+  statusDotDanger: {
+    backgroundColor: colors.danger,
+  },
+  connectionText: {
+    color: colors.textSoft,
+    fontFamily: 'sans-serif',
+    fontSize: 12,
     fontWeight: '700',
   },
-  secondaryButton: {
+  iconButton: {
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderColor: '#cbd3df',
-    borderRadius: 8,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 999,
+    borderWidth: 1,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+  },
+  iconButtonText: {
+    color: colors.primary,
+    fontFamily: 'sans-serif',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  logoutButton: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 999,
     borderWidth: 1,
     minHeight: 40,
     justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  logoutButtonText: {
+    color: colors.textSoft,
+    fontFamily: 'sans-serif',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  pushCard: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    marginHorizontal: 16,
+    marginTop: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  pushTextGroup: {
+    flex: 1,
+    minWidth: 0,
+  },
+  pushTitle: {
+    color: colors.text,
+    fontFamily: 'sans-serif',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  pushDetail: {
+    color: colors.muted,
+    fontFamily: 'sans-serif',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  smallButton: {
+    alignItems: 'center',
+    backgroundColor: colors.primarySoft,
+    borderRadius: 999,
+    minHeight: 36,
+    justifyContent: 'center',
     paddingHorizontal: 12,
   },
-  secondaryButtonText: {
-    color: '#263243',
-    fontSize: 14,
-    fontWeight: '600',
+  smallButtonText: {
+    color: colors.primary,
+    fontFamily: 'sans-serif',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  content: {
+    flex: 1,
+  },
+  input: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    color: colors.text,
+    fontFamily: 'sans-serif',
+    fontSize: 15,
+    marginTop: 10,
+    minHeight: 48,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  primaryButton: {
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    minHeight: 48,
+    justifyContent: 'center',
+    marginTop: 14,
+    paddingHorizontal: 16,
+  },
+  primaryButtonText: {
+    color: colors.surface,
+    fontFamily: 'sans-serif',
+    fontSize: 15,
+    fontWeight: '800',
   },
   dangerButton: {
     alignItems: 'center',
-    backgroundColor: '#c62f3a',
+    backgroundColor: colors.danger,
     borderRadius: 8,
-    flex: 1,
-    marginTop: 16,
-    minHeight: 44,
+    minHeight: 48,
     justifyContent: 'center',
+    marginTop: 14,
     paddingHorizontal: 16,
   },
   dangerButtonText: {
-    color: '#ffffff',
+    color: colors.surface,
+    fontFamily: 'sans-serif',
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   disabled: {
-    opacity: 0.45,
+    backgroundColor: '#93c5fd',
+    opacity: 1,
   },
   inlineSpinner: {
-    marginTop: 12,
+    marginTop: 8,
   },
-  error: {
-    color: '#b2232f',
-    fontSize: 13,
+  errorBanner: {
+    backgroundColor: colors.dangerSoft,
+    borderColor: '#fecaca',
+    borderRadius: 8,
+    borderWidth: 1,
     marginHorizontal: 16,
     marginTop: 10,
+    padding: 12,
   },
-  tabs: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 16,
+  errorTextGroup: {
+    gap: 2,
   },
-  tabButton: {
-    alignItems: 'center',
-    backgroundColor: '#e9edf3',
-    borderRadius: 8,
-    flex: 1,
-    minHeight: 42,
-    justifyContent: 'center',
-  },
-  tabButtonActive: {
-    backgroundColor: '#151a21',
-  },
-  tabText: {
-    color: '#4f5d70',
+  errorTitle: {
+    color: colors.danger,
+    fontFamily: 'sans-serif',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '900',
   },
-  tabTextActive: {
-    color: '#ffffff',
-  },
-  toolbar: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-  },
-  pushState: {
-    color: '#687385',
+  errorDetail: {
+    color: colors.danger,
+    fontFamily: 'sans-serif',
     fontSize: 12,
-    marginHorizontal: 16,
-    marginTop: 8,
+    lineHeight: 17,
   },
   list: {
     gap: 12,
     padding: 16,
-    paddingBottom: 36,
+    paddingBottom: 100,
   },
   form: {
     gap: 12,
     padding: 16,
-    paddingBottom: 36,
+    paddingBottom: 104,
   },
-  sectionLabel: {
-    color: '#263243',
+  screenHeading: {
+    marginBottom: 2,
+  },
+  screenTitle: {
+    color: colors.text,
+    fontFamily: 'sans-serif',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  screenSubtitle: {
+    color: colors.muted,
+    fontFamily: 'sans-serif',
     fontSize: 13,
-    fontWeight: '800',
+    lineHeight: 18,
     marginTop: 4,
   },
+  sectionLabel: {
+    color: colors.text,
+    fontFamily: 'sans-serif',
+    fontSize: 13,
+    fontWeight: '900',
+    marginTop: 6,
+  },
   card: {
-    backgroundColor: '#ffffff',
-    borderColor: '#dde3ec',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
     padding: 14,
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  selectedCard: {
+    backgroundColor: '#f8fbff',
+    borderColor: colors.primary,
+    borderWidth: 2,
   },
   row: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     flexDirection: 'row',
+    gap: 10,
     justifyContent: 'space-between',
-    gap: 12,
+  },
+  cardTitleGroup: {
+    flex: 1,
+    minWidth: 0,
   },
   cardTitle: {
-    color: '#151a21',
+    color: colors.text,
     flex: 1,
+    fontFamily: 'sans-serif',
     fontSize: 17,
-    fontWeight: '700',
+    fontWeight: '900',
+    letterSpacing: 0,
   },
   meta: {
-    color: '#687385',
-    fontSize: 12,
-    marginTop: 6,
-  },
-  bodyText: {
-    color: '#263243',
+    color: colors.textSoft,
+    fontFamily: 'sans-serif',
     fontSize: 13,
-    lineHeight: 19,
+    lineHeight: 18,
+    marginTop: 4,
+  },
+  footerMeta: {
+    color: colors.muted,
+    fontFamily: 'sans-serif',
+    fontSize: 12,
+    lineHeight: 17,
     marginTop: 8,
+  },
+  metaGrid: {
+    borderTopColor: colors.border,
+    borderTopWidth: 1,
+    marginTop: 12,
+    paddingTop: 2,
+  },
+  infoBlock: {
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: 8,
+    marginTop: 12,
+    padding: 12,
+  },
+  infoLabel: {
+    color: colors.muted,
+    fontFamily: 'sans-serif',
+    fontSize: 11,
+    fontWeight: '900',
+    marginBottom: 4,
+  },
+  infoValue: {
+    color: colors.text,
+    fontFamily: 'sans-serif',
+    fontSize: 14,
+    lineHeight: 20,
   },
   optionButton: {
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderColor: '#d5dbe5',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
     justifyContent: 'space-between',
-    minHeight: 68,
+    minHeight: 64,
     padding: 12,
   },
   optionButtonActive: {
-    backgroundColor: '#151a21',
-    borderColor: '#151a21',
+    backgroundColor: '#f8fbff',
+    borderColor: colors.primary,
+    borderWidth: 2,
   },
   optionMain: {
     flex: 1,
+    minWidth: 0,
+  },
+  optionRight: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  selectedMark: {
+    color: colors.primary,
+    fontFamily: 'sans-serif',
+    fontSize: 11,
+    fontWeight: '900',
   },
   optionTitle: {
-    color: '#151a21',
+    color: colors.text,
+    fontFamily: 'sans-serif',
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '900',
   },
   optionTitleActive: {
-    color: '#ffffff',
+    color: colors.text,
   },
   optionMeta: {
-    color: '#687385',
+    color: colors.textSoft,
+    fontFamily: 'sans-serif',
     fontSize: 12,
     marginTop: 4,
   },
   optionMetaActive: {
-    color: '#cbd3df',
+    color: colors.textSoft,
   },
   segmentRow: {
     flexDirection: 'row',
@@ -1022,56 +1572,186 @@ const styles = StyleSheet.create({
   },
   segmentButton: {
     alignItems: 'center',
-    backgroundColor: '#e9edf3',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderRadius: 8,
+    borderWidth: 1,
     flex: 1,
-    minHeight: 40,
+    minHeight: 44,
     justifyContent: 'center',
   },
   segmentButtonActive: {
-    backgroundColor: '#1769e0',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   segmentText: {
-    color: '#4f5d70',
+    color: colors.textSoft,
+    fontFamily: 'sans-serif',
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '900',
   },
   segmentTextActive: {
-    color: '#ffffff',
+    color: colors.surface,
+  },
+  promptHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  counterText: {
+    color: colors.muted,
+    fontFamily: 'sans-serif',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  helperText: {
+    color: colors.muted,
+    fontFamily: 'sans-serif',
+    fontSize: 12,
+    marginTop: -4,
   },
   promptInput: {
-    minHeight: 140,
+    minHeight: 132,
   },
   pill: {
-    backgroundColor: '#e7f0ff',
     borderRadius: 999,
+    flexShrink: 0,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-  pillText: {
-    color: '#1769e0',
-    fontSize: 11,
-    fontWeight: '800',
+  pillSuccess: {
+    backgroundColor: colors.successSoft,
   },
-  reasonBox: {
-    backgroundColor: '#f5f7fa',
-    borderRadius: 8,
-    marginTop: 10,
-    maxHeight: 120,
-    padding: 10,
+  pillWarning: {
+    backgroundColor: colors.warningSoft,
+  },
+  pillDanger: {
+    backgroundColor: colors.dangerSoft,
+  },
+  pillInfo: {
+    backgroundColor: colors.primarySoft,
+  },
+  pillNeutral: {
+    backgroundColor: colors.offlineSoft,
+  },
+  pillText: {
+    fontFamily: 'sans-serif',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  pillTextSuccess: {
+    color: colors.success,
+  },
+  pillTextWarning: {
+    color: colors.warning,
+  },
+  pillTextDanger: {
+    color: colors.danger,
+  },
+  pillTextInfo: {
+    color: colors.primary,
+  },
+  pillTextNeutral: {
+    color: colors.offline,
+  },
+  approvalContext: {
+    marginTop: 2,
   },
   actionRow: {
     flexDirection: 'row',
     gap: 10,
   },
-  empty: {
-    color: '#687385',
+  emptyCard: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 20,
+  },
+  emptyTitle: {
+    color: colors.text,
+    fontFamily: 'sans-serif',
     fontSize: 15,
-    padding: 24,
+    fontWeight: '900',
     textAlign: 'center',
   },
+  emptyText: {
+    color: colors.muted,
+    fontFamily: 'sans-serif',
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  bottomNav: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderTopColor: colors.border,
+    borderTopWidth: 1,
+    bottom: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    left: 0,
+    paddingBottom: 10,
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    position: 'absolute',
+    right: 0,
+  },
+  navItem: {
+    alignItems: 'center',
+    borderRadius: 8,
+    flex: 1,
+    gap: 3,
+    minHeight: 52,
+    justifyContent: 'center',
+  },
+  navItemActive: {
+    backgroundColor: colors.primarySoft,
+  },
+  navIconWrap: {
+    minHeight: 22,
+    minWidth: 28,
+  },
+  navIcon: {
+    color: colors.muted,
+    fontFamily: 'sans-serif',
+    fontSize: 15,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  navIconActive: {
+    color: colors.primary,
+  },
+  navLabel: {
+    color: colors.muted,
+    fontFamily: 'sans-serif',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  navLabelActive: {
+    color: colors.primary,
+  },
+  navBadge: {
+    alignItems: 'center',
+    backgroundColor: colors.danger,
+    borderRadius: 999,
+    minWidth: 17,
+    paddingHorizontal: 4,
+    position: 'absolute',
+    right: -6,
+    top: -4,
+  },
+  navBadgeText: {
+    color: colors.surface,
+    fontFamily: 'sans-serif',
+    fontSize: 10,
+    fontWeight: '900',
+  },
   muted: {
-    color: '#687385',
+    color: colors.muted,
+    fontFamily: 'sans-serif',
     marginTop: 12,
   },
 });
