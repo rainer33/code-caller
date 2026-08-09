@@ -299,6 +299,7 @@ function CodeCallerApp() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
   const [selectedServerId, setSelectedServerId] = useState<string | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [workerType, setWorkerType] = useState<WorkerType>('CODEX');
   const [prompt, setPrompt] = useState('');
   const [socketState, setSocketState] = useState('offline');
@@ -423,6 +424,7 @@ function CodeCallerApp() {
     setTasks([]);
     setApprovals([]);
     setSelectedServerId(null);
+    setSelectedTaskId(null);
     setPrompt('');
     if (refreshToken) {
       fetch(`${API_BASE_URL}/auth/logout`, {
@@ -481,6 +483,7 @@ function CodeCallerApp() {
       setPrompt('');
       setWorkerType('CODEX');
       setTab('tasks');
+      setSelectedTaskId(task.id);
       await loadAll();
     } catch (err) {
       setError((err as Error).message);
@@ -590,7 +593,7 @@ function CodeCallerApp() {
       );
     }
     if (tab === 'tasks') {
-      return <TasksList tasks={tasks} />;
+      return <TasksList onOpenTask={setSelectedTaskId} tasks={tasks} />;
     }
     return <ApprovalsList approvals={approvals} onDecision={decideApproval} />;
   }, [
@@ -605,6 +608,19 @@ function CodeCallerApp() {
     tasks,
     workerType,
   ]);
+
+  const selectedTask = selectedTaskId
+    ? tasks.find(task => task.id === selectedTaskId) ?? null
+    : null;
+  const selectedTaskServer = selectedTask
+    ? servers.find(server => server.id === selectedTask.serverId) ?? null
+    : null;
+  const selectedTaskApproval = selectedTask
+    ? approvals.find(
+        approval =>
+          approval.taskId === selectedTask.id && approval.status === 'PENDING',
+      ) ?? null
+    : null;
 
   if (booting) {
     return (
@@ -654,6 +670,22 @@ function CodeCallerApp() {
 
   const socket = normalizeStatus(socketState);
   const push = pushSummary(pushState);
+
+  if (selectedTask) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="dark-content" />
+        <TaskDetailScreen
+          approval={selectedTaskApproval}
+          busy={busy}
+          onBack={() => setSelectedTaskId(null)}
+          onDecision={decideApproval}
+          server={selectedTaskServer}
+          task={selectedTask}
+        />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.root}>
@@ -902,7 +934,13 @@ function ServersList({
   );
 }
 
-function TasksList({ tasks }: { tasks: TaskItem[] }) {
+function TasksList({
+  onOpenTask,
+  tasks,
+}: {
+  onOpenTask: (taskId: string) => void;
+  tasks: TaskItem[];
+}) {
   return (
     <FlatList
       contentContainerStyle={styles.list}
@@ -916,7 +954,7 @@ function TasksList({ tasks }: { tasks: TaskItem[] }) {
       }
       ListEmptyComponent={<EmptyState label="아직 생성된 작업이 없습니다." />}
       renderItem={({ item }) => (
-        <View style={styles.card}>
+        <Pressable onPress={() => onOpenTask(item.id)} style={styles.card}>
           <View style={styles.row}>
             <Text style={styles.cardTitle} numberOfLines={1}>
               {item.workerType}
@@ -929,10 +967,7 @@ function TasksList({ tasks }: { tasks: TaskItem[] }) {
             value={extractPrompt(item.input) || '입력 내용 없음'}
           />
           {item.logs ? (
-            <InfoBlock label="최근 로그" lines={3} value={item.logs} />
-          ) : null}
-          {item.result ? (
-            <InfoBlock label="결과" lines={3} value={summarize(item.result)} />
+            <InfoBlock label="최근 로그" lines={2} value={item.logs} />
           ) : null}
           <View style={styles.metaGrid}>
             <Text style={styles.footerMeta}>Task {compactId(item.id)}</Text>
@@ -943,9 +978,166 @@ function TasksList({ tasks }: { tasks: TaskItem[] }) {
               요청 {formatDate(item.createdAt)}
             </Text>
           </View>
-        </View>
+          <Text style={styles.openHint}>상세 보기</Text>
+        </Pressable>
       )}
     />
+  );
+}
+
+function TaskDetailScreen({
+  approval,
+  busy,
+  onBack,
+  onDecision,
+  server,
+  task,
+}: {
+  approval: ApprovalItem | null;
+  busy: boolean;
+  onBack: () => void;
+  onDecision: (approval: ApprovalItem, approve: boolean) => void;
+  server: ServerItem | null;
+  task: TaskItem;
+}) {
+  const scrollRef = useRef<ScrollView | null>(null);
+  const logScrollRef = useRef<ScrollView | null>(null);
+  const promptText = extractPrompt(task.input) || '입력 내용 없음';
+  const logs = task.logs?.trim() || '아직 로그가 없습니다.';
+  const result = task.result ? summarize(task.result) : '아직 결과가 없습니다.';
+  const isLive = ['QUEUED', 'RUNNING', 'AWAITING_APPROVAL'].includes(
+    task.status.toUpperCase(),
+  );
+
+  const scrollLogsToEnd = useCallback(() => {
+    if (!isLive) {
+      return;
+    }
+    setTimeout(() => logScrollRef.current?.scrollToEnd({ animated: true }), 80);
+  }, [isLive]);
+
+  useEffect(() => {
+    scrollLogsToEnd();
+  }, [logs, scrollLogsToEnd]);
+
+  return (
+    <View style={styles.detailRoot}>
+      <View style={styles.detailHeader}>
+        <Pressable onPress={onBack} style={styles.backButton}>
+          <Text style={styles.backButtonText}>Back</Text>
+        </Pressable>
+        <View style={styles.detailHeaderTitleGroup}>
+          <Text style={styles.detailHeaderTitle}>Task Detail</Text>
+          <Text style={styles.detailHeaderMeta} numberOfLines={1}>
+            {task.workerType} / {server?.name ?? compactId(task.serverId)}
+          </Text>
+        </View>
+        <StatusPill label={task.status} />
+      </View>
+
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={styles.detailContent}
+        nestedScrollEnabled
+      >
+        <View style={styles.detailHero}>
+          <View style={styles.row}>
+            <View style={styles.cardTitleGroup}>
+              <Text style={styles.detailTitle}>{task.workerType}</Text>
+              <Text style={styles.detailMeta}>
+                {server?.name ?? 'Unknown server'} / 요청{' '}
+                {formatDate(task.createdAt)}
+              </Text>
+            </View>
+            <StatusPill label={task.status} />
+          </View>
+          <View style={styles.detailIdRow}>
+            <Text style={styles.detailIdText}>Task {compactId(task.id)}</Text>
+            <Text style={styles.detailIdText}>
+              Server {compactId(task.serverId)}
+            </Text>
+          </View>
+        </View>
+
+        {approval ? (
+          <View style={styles.detailApprovalCard}>
+            <Text style={styles.detailSectionTitle}>승인 요청</Text>
+            <Text style={styles.detailBodyText}>
+              {approval.reason || '승인 요청 사유가 없습니다.'}
+            </Text>
+            <View style={styles.actionRow}>
+              <PrimaryButton
+                disabled={busy}
+                label="승인"
+                onPress={() => onDecision(approval, true)}
+              />
+              <DangerButton
+                disabled={busy}
+                label="거절"
+                onPress={() => {
+                  Alert.alert(
+                    '승인 요청을 거절할까요?',
+                    approval.reason || approval.taskId,
+                    [
+                      { text: '취소', style: 'cancel' },
+                      {
+                        text: '거절',
+                        style: 'destructive',
+                        onPress: () => onDecision(approval, false),
+                      },
+                    ],
+                  );
+                }}
+              />
+            </View>
+          </View>
+        ) : null}
+
+        <DetailSection title="프롬프트">
+          <Text style={styles.detailBodyText}>{promptText}</Text>
+        </DetailSection>
+
+        <DetailSection
+          subtitle={
+            isLive ? '실행 중에는 최신 로그로 자동 이동합니다.' : undefined
+          }
+          title="로그"
+        >
+          <ScrollView
+            ref={logScrollRef}
+            nestedScrollEnabled
+            onContentSizeChange={scrollLogsToEnd}
+            style={styles.logBox}
+          >
+            <Text style={styles.logText}>{logs}</Text>
+          </ScrollView>
+        </DetailSection>
+
+        <DetailSection title="결과">
+          <Text style={styles.detailBodyText}>{result}</Text>
+        </DetailSection>
+      </ScrollView>
+    </View>
+  );
+}
+
+function DetailSection({
+  children,
+  subtitle,
+  title,
+}: {
+  children: React.ReactNode;
+  subtitle?: string;
+  title: string;
+}) {
+  return (
+    <View style={styles.detailSection}>
+      <Text style={styles.detailSectionTitle}>{title}</Text>
+      {subtitle ? (
+        <Text style={styles.detailSectionSubtitle}>{subtitle}</Text>
+      ) : null}
+      {children}
+    </View>
   );
 }
 
@@ -1192,14 +1384,20 @@ function PrimaryButton({
 }
 
 function DangerButton({
+  disabled,
   label,
   onPress,
 }: {
+  disabled?: boolean;
   label: string;
   onPress: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={styles.dangerButton}>
+    <Pressable
+      disabled={disabled}
+      onPress={onPress}
+      style={[styles.dangerButton, disabled && styles.dangerButtonDisabled]}
+    >
       <Text style={styles.dangerButtonText}>{label}</Text>
     </Pressable>
   );
@@ -1403,6 +1601,9 @@ const styles = StyleSheet.create({
     marginTop: 14,
     paddingHorizontal: 16,
   },
+  dangerButtonDisabled: {
+    backgroundColor: '#fca5a5',
+  },
   dangerButtonText: {
     color: colors.surface,
     fontFamily: 'sans-serif',
@@ -1527,6 +1728,13 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     marginTop: 12,
     paddingTop: 2,
+  },
+  openHint: {
+    color: colors.primary,
+    fontFamily: 'sans-serif',
+    fontSize: 12,
+    fontWeight: '900',
+    marginTop: 10,
   },
   infoBlock: {
     backgroundColor: colors.surfaceAlt,
@@ -1783,5 +1991,140 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontFamily: 'sans-serif',
     marginTop: 12,
+  },
+  detailRoot: {
+    backgroundColor: colors.bg,
+    flex: 1,
+  },
+  detailHeader: {
+    alignItems: 'center',
+    backgroundColor: colors.bg,
+    borderBottomColor: colors.border,
+    borderBottomWidth: 1,
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    paddingTop: 10,
+  },
+  backButton: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 999,
+    borderWidth: 1,
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  backButtonText: {
+    color: colors.primary,
+    fontFamily: 'sans-serif',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  detailHeaderTitleGroup: {
+    flex: 1,
+    minWidth: 0,
+  },
+  detailHeaderTitle: {
+    color: colors.text,
+    fontFamily: 'sans-serif',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  detailHeaderMeta: {
+    color: colors.muted,
+    fontFamily: 'sans-serif',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  detailContent: {
+    gap: 12,
+    padding: 16,
+    paddingBottom: 40,
+  },
+  detailHero: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 14,
+  },
+  detailTitle: {
+    color: colors.text,
+    fontFamily: 'sans-serif',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  detailMeta: {
+    color: colors.textSoft,
+    fontFamily: 'sans-serif',
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 4,
+  },
+  detailIdRow: {
+    borderTopColor: colors.border,
+    borderTopWidth: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 12,
+    paddingTop: 10,
+  },
+  detailIdText: {
+    color: colors.muted,
+    fontFamily: 'sans-serif',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  detailApprovalCard: {
+    backgroundColor: colors.warningSoft,
+    borderColor: '#fde68a',
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 14,
+  },
+  detailSection: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 14,
+  },
+  detailSectionTitle: {
+    color: colors.text,
+    fontFamily: 'sans-serif',
+    fontSize: 15,
+    fontWeight: '900',
+    marginBottom: 8,
+  },
+  detailSectionSubtitle: {
+    color: colors.muted,
+    fontFamily: 'sans-serif',
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 10,
+    marginTop: -4,
+  },
+  detailBodyText: {
+    color: colors.text,
+    fontFamily: 'sans-serif',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  logBox: {
+    backgroundColor: '#0f172a',
+    borderRadius: 8,
+    maxHeight: 420,
+    minHeight: 260,
+    padding: 12,
+  },
+  logText: {
+    color: '#e5e7eb',
+    fontFamily: Platform.OS === 'android' ? 'monospace' : 'Menlo',
+    fontSize: 13,
+    lineHeight: 19,
   },
 });
