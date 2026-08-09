@@ -10,6 +10,7 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { PrismaService } from '../prisma/prisma.service';
 import { ServersService } from '../servers/servers.service';
 import {
   DAEMON_INBOUND,
@@ -34,6 +35,7 @@ export class DaemonGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly serversService: ServersService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly prisma: PrismaService,
   ) {}
 
   async handleConnection(socket: Socket) {
@@ -71,23 +73,58 @@ export class DaemonGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage(DAEMON_INBOUND.TASK_STATUS_UPDATE)
-  onTaskStatusUpdate(@MessageBody() payload: DaemonTaskStatusPayload) {
+  async onTaskStatusUpdate(
+    @MessageBody() payload: DaemonTaskStatusPayload,
+    @ConnectedSocket() socket: Socket,
+  ) {
+    if (!(await this.assertOwnsTask(socket, payload.taskId))) return;
     this.eventEmitter.emit(INTERNAL_EVENTS.DAEMON_TASK_STATUS, payload);
   }
 
   @SubscribeMessage(DAEMON_INBOUND.TASK_LOG)
-  onTaskLog(@MessageBody() payload: DaemonTaskLogPayload) {
+  async onTaskLog(@MessageBody() payload: DaemonTaskLogPayload, @ConnectedSocket() socket: Socket) {
+    if (!(await this.assertOwnsTask(socket, payload.taskId))) return;
     this.eventEmitter.emit(INTERNAL_EVENTS.DAEMON_TASK_LOG, payload);
   }
 
   @SubscribeMessage(DAEMON_INBOUND.TASK_RESULT)
-  onTaskResult(@MessageBody() payload: DaemonTaskResultPayload) {
+  async onTaskResult(@MessageBody() payload: DaemonTaskResultPayload, @ConnectedSocket() socket: Socket) {
+    if (!(await this.assertOwnsTask(socket, payload.taskId))) return;
     this.eventEmitter.emit(INTERNAL_EVENTS.DAEMON_TASK_RESULT, payload);
   }
 
   @SubscribeMessage(DAEMON_INBOUND.APPROVAL_REQUEST)
-  onApprovalRequest(@MessageBody() payload: DaemonApprovalRequestPayload) {
+  async onApprovalRequest(
+    @MessageBody() payload: DaemonApprovalRequestPayload,
+    @ConnectedSocket() socket: Socket,
+  ) {
+    if (!(await this.assertOwnsTask(socket, payload.taskId))) return;
     this.eventEmitter.emit(INTERNAL_EVENTS.DAEMON_APPROVAL_REQUEST, payload);
+  }
+
+  /**
+   * [AI-reviewed fix — Claude] Every inbound daemon event names a taskId in
+   * its own payload, but handleConnection only authenticates the socket to a
+   * serverId — nothing previously checked that the taskId actually belonged
+   * to that server. Any daemon with a valid API key for its own server could
+   * therefore report status/log/result/approval events for a taskId owned by
+   * a completely different tenant, corrupting that tenant's task state and
+   * triggering bogus approval-required push notifications for them. This
+   * check closes that gap by rejecting events for tasks the calling socket
+   * doesn't own. Found and fixed by Claude (Anthropic) during a security
+   * review requested by the repo owner; see PR description for details.
+   */
+  private async assertOwnsTask(socket: Socket, taskId: string): Promise<boolean> {
+    const serverId = socket.data?.serverId as string | undefined;
+    if (!serverId) return false;
+    const task = await this.prisma.task.findUnique({ where: { id: taskId }, select: { serverId: true } });
+    if (!task || task.serverId !== serverId) {
+      this.logger.warn(
+        `Rejected daemon event for foreign task ${taskId}: socket belongs to server=${serverId}`,
+      );
+      return false;
+    }
+    return true;
   }
 
   /** Returns true if the target server currently has a connected daemon socket. */
