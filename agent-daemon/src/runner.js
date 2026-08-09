@@ -131,6 +131,13 @@ class TaskRunner {
     }
     this.child = child;
 
+    // `codex exec` always tries to read an initial <stdin> block to EOF before
+    // starting, even when a prompt argument is given. Since nothing else is
+    // ever written to stdin (Codex's own approval prompts don't exist in
+    // non-interactive `exec` mode — see approval-detector.js note), leaving
+    // this pipe open deadlocks every task before it starts.
+    child.stdin.end();
+
     child.stdout.setEncoding('utf8');
     child.stderr.setEncoding('utf8');
     child.stdout.on('data', (chunk) => this.onData(chunk));

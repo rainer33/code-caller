@@ -16,6 +16,12 @@
  *    `(y/n)` or the sensitive keywords. In practice this surfaces as an
  *    approval request that a human can approve immediately.
  *  - Detection is only as good as the data Codex emits on stdout/stderr.
+ *  - Verified 2026-08-09: `codex exec` itself never blocks on stdin for a
+ *    sandboxed run (it runs with `approval: never` and just succeeds/fails
+ *    inside its workspace sandbox). runner.js closes the child's stdin right
+ *    after spawn for that reason, so `resume()`'s stdin write is a no-op for
+ *    the CODEX adapter today. This module is kept for worker types whose CLI
+ *    genuinely prompts on stdin.
  */
 
 const CONFIRM_MARKERS = [
