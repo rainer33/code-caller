@@ -1,6 +1,6 @@
 # worklog-publish (Codex, 로컬 macOS 실행용)
 
-"문서화배포" 트리거를 받았을 때 이 프롬프트로 로컬 `codex exec`를 실행한다:
+"문서화" 또는 "문서화배포" 트리거를 받았을 때 이 프롬프트로 로컬 `codex exec`를 실행한다. 사용자와 Codex가 직접 진행한 대화형 화면 작업은 매 대화 종료마다 문서화하지 않는다. 어느 정도 작업이 누적된 뒤 사용자가 "문서화"라고 말하면, 마지막 작업일지 이후의 미문서화 작업을 한꺼번에 정리한다:
 
 ```bash
 codex exec --skip-git-repo-check -C /Users/jahmin/orca/workspaces/code-caller - < ops/prompts/worklog-publish.md

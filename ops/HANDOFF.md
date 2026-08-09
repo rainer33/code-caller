@@ -29,7 +29,11 @@
 3. **작업일지 자동화** ("문서화배포") — Notion "Code Caller 개발일지"
    시리즈 + Obsidian(`code-caller-worklog` private repo) 동기화.
    `ops/prompts/worklog-publish.md`. 이건 2026-08-09 중반에 이미 Codex에게
-   위임됐었고, 이번 전체 위임에도 그대로 포함된다.
+   위임됐었고, 이번 전체 위임에도 그대로 포함된다. 단, 2026-08-09에 사용자가
+   "너랑 모든 대화가 끝날 때 마다 문서화 할 필요 없다. 어느 정도 작업이 진행된
+   후 내가 '문서화' 라고 하면 문서화가 안된 작업부터 작업을 한꺼번에 한다"고
+   명시했다. 따라서 대화형 작업에서는 매 대화 종료마다 작업일지를 만들지 말고,
+   사용자가 "문서화"라고 지시했을 때 미문서화 작업을 모아 처리한다.
 4. **백엔드/인프라 성격 후속 작업** — `ops/BACKLOG.md`에 우선순위와 함께
    정리돼 있다. launchd가 하루 한 번
    (`~/Library/LaunchAgents/com.codecaller.codex-commander.plist`)
