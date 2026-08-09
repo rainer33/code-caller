@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { ServerStatus } from '@prisma/client';
+import { ServerStatus, WorkerProvider } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { generateApiKey, hashApiKey } from '../common/crypto.util';
 import { CreateServerDto } from './dto/create-server.dto';
@@ -17,6 +17,9 @@ export class ServersService {
         osType: dto.osType,
         tailscaleIp: dto.tailscaleIp,
         apiKeyHash: hashApiKey(apiKey),
+        workerProfiles: {
+          create: this.defaultWorkerProfiles(),
+        },
       },
     });
     // apiKey is only ever returned here — it cannot be recovered later, only rotated.
@@ -87,5 +90,21 @@ export class ServersService {
   }) {
     const { id, name, osType, tailscaleIp, status, lastHeartbeatAt, createdAt } = server;
     return { id, name, osType, tailscaleIp, status, lastHeartbeatAt, createdAt };
+  }
+
+  private defaultWorkerProfiles() {
+    return [
+      {
+        provider: WorkerProvider.CODEX,
+        profileName: 'default',
+        enabled: true,
+        capabilities: {
+          taskExecution: true,
+          approvals: true,
+          shell: true,
+          codeEditing: true,
+        },
+      },
+    ];
   }
 }

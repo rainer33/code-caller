@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RealtimeModule } from './realtime/realtime.module';
+import { ServerRegistrationsModule } from './server-registrations/server-registrations.module';
 import { ServersModule } from './servers/servers.module';
 import { TasksModule } from './tasks/tasks.module';
 import { WorkersModule } from './workers/workers.module';
@@ -26,6 +27,7 @@ import { WorkersModule } from './workers/workers.module';
     }),
     PrismaModule,
     AuthModule,
+    ServerRegistrationsModule,
     ServersModule,
     WorkersModule,
     RealtimeModule,

@@ -28,12 +28,18 @@ Connection auth is `auth: { apiKey }` on the HTML5 WebSocket handshake to
 
 ```bash
 cd agent-daemon
-cp .env.example .env        # then fill in HUB_URL, API_KEY, SERVER_ID
 npm install
+cp .env.example .env        # then set HUB_URL and OWNER_EMAIL if needed
+npm run register            # approve the request in the mobile app
 npm start                   # or: node src/index.js
 ```
 
-Log in to the Hub and register the server once to get an API key:
+The registration command creates a pending server request in the Hub, prints a
+6-digit verification code, and waits. Open the Code Caller mobile app, approve
+the matching request on the Servers screen, and the daemon writes `API_KEY` and
+`SERVER_ID` into `agent-daemon/.env` automatically.
+
+Manual registration is still available for emergency use:
 
 ```bash
 # (Hub running, seed user from hub-api/README.md)

@@ -50,6 +50,19 @@ type ServerItem = {
   createdAt: string;
 };
 
+type ServerRegistrationRequestItem = {
+  id: string;
+  name: string;
+  osType: string;
+  tailscaleIp: string;
+  fingerprint: string;
+  verificationCode: string;
+  status: string;
+  expiresAt: string;
+  serverId?: string | null;
+  createdAt: string;
+};
+
 type TaskItem = {
   id: string;
   serverId: string;
@@ -329,6 +342,9 @@ function CodeCallerApp() {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('servers');
   const [servers, setServers] = useState<ServerItem[]>([]);
+  const [registrationRequests, setRegistrationRequests] = useState<
+    ServerRegistrationRequestItem[]
+  >([]);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
   const [selectedServerId, setSelectedServerId] = useState<string | null>(null);
@@ -403,12 +419,21 @@ function CodeCallerApp() {
     setBusy(true);
     setError(null);
     try {
-      const [serverData, taskData, approvalData] = await Promise.all([
+      const [
+        serverData,
+        registrationRequestData,
+        taskData,
+        approvalData,
+      ] = await Promise.all([
         request<ServerItem[]>('/servers'),
+        request<ServerRegistrationRequestItem[]>(
+          '/server-registration-requests',
+        ),
         request<TaskItem[]>('/tasks'),
         request<ApprovalItem[]>('/approvals?status=PENDING'),
       ]);
       setServers(serverData);
+      setRegistrationRequests(registrationRequestData);
       setSelectedServerId(current => {
         if (current && serverData.some(server => server.id === current)) {
           return current;
@@ -454,6 +479,7 @@ function CodeCallerApp() {
     const refreshToken = tokens?.refreshToken;
     await saveTokens(null);
     setServers([]);
+    setRegistrationRequests([]);
     setTasks([]);
     setApprovals([]);
     setSelectedServerId(null);
@@ -482,6 +508,33 @@ function CodeCallerApp() {
               : 'Rejected from Android app',
           }),
         });
+        await loadAll();
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [loadAll, request],
+  );
+
+  const decideServerRegistration = useCallback(
+    async (requestItem: ServerRegistrationRequestItem, approve: boolean) => {
+      setBusy(true);
+      setError(null);
+      try {
+        await request<ServerRegistrationRequestItem>(
+          `/server-registration-requests/${requestItem.id}/decision`,
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              approve,
+              reason: approve
+                ? 'Approved from Android app'
+                : 'Rejected from Android app',
+            }),
+          },
+        );
         await loadAll();
       } catch (err) {
         setError((err as Error).message);
@@ -604,7 +657,10 @@ function CodeCallerApp() {
     if (tab === 'servers') {
       return (
         <ServersList
+          busy={busy}
+          onRegistrationDecision={decideServerRegistration}
           onSelectedServerChange={setSelectedServerId}
+          registrationRequests={registrationRequests}
           selectedServerId={selectedServerId}
           servers={servers}
         />
@@ -634,7 +690,9 @@ function CodeCallerApp() {
     busy,
     createTask,
     decideApproval,
+    decideServerRegistration,
     prompt,
+    registrationRequests,
     selectedServerId,
     servers,
     tab,
@@ -806,7 +864,7 @@ function NewTaskScreen({
   const selectedServer = servers.find(server => server.id === selectedServerId);
   const scrollRef = useRef<ScrollView | null>(null);
   const scrollToPrompt = useCallback(() => {
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
+    setTimeout(() => scrollRef.current?.scrollTo({ y: 0, animated: true }), 120);
   }, []);
 
   return (
@@ -821,10 +879,35 @@ function NewTaskScreen({
         keyboardShouldPersistTaps="handled"
       >
         <ScreenHeading
-          subtitle="실행할 서버와 작업 내용을 순서대로 선택하세요."
+          subtitle="먼저 목표를 적고, 실행 대상은 필요한 만큼 조정하세요."
           title="새 작업"
         />
-        <Text style={styles.sectionLabel}>1. 실행 서버</Text>
+        <View style={styles.promptHeader}>
+          <Text style={styles.sectionLabel}>1. 작업 목표</Text>
+          <Text style={styles.counterText}>{prompt.length}자</Text>
+        </View>
+        <TextInput
+          multiline
+          onChangeText={onPromptChange}
+          onFocus={scrollToPrompt}
+          placeholder="예: 이 프로젝트의 로그인 화면을 모바일에 맞게 정리해 줘."
+          placeholderTextColor={colors.mutedLight}
+          style={[styles.input, styles.promptInput]}
+          scrollEnabled
+          textAlignVertical="top"
+          value={prompt}
+        />
+
+        <View style={styles.dispatchSummary}>
+          <Text style={styles.dispatchSummaryTitle}>실행 준비</Text>
+          <Text style={styles.dispatchSummaryText} numberOfLines={2}>
+            {selectedServer
+              ? `${selectedServer.name}에서 ${workerType}로 실행됩니다.`
+              : '서버를 하나 선택하면 작업을 보낼 수 있습니다.'}
+          </Text>
+        </View>
+
+        <Text style={styles.sectionLabel}>2. 실행 서버</Text>
         {servers.length === 0 ? (
           <EmptyState label="서버를 불러온 뒤 작업을 만들 수 있습니다." />
         ) : (
@@ -865,7 +948,7 @@ function NewTaskScreen({
           ))
         )}
 
-        <Text style={styles.sectionLabel}>2. AI Worker</Text>
+        <Text style={styles.sectionLabel}>3. AI Worker</Text>
         <View style={styles.segmentRow}>
           {WORKER_TYPES.map(item => (
             <Pressable
@@ -888,26 +971,11 @@ function NewTaskScreen({
           ))}
         </View>
 
-        <View style={styles.promptHeader}>
-          <Text style={styles.sectionLabel}>3. 작업 내용</Text>
-          <Text style={styles.counterText}>{prompt.length}자</Text>
-        </View>
         {selectedServer ? (
           <Text style={styles.helperText}>
             선택됨: {selectedServer.name} / {selectedServer.osType}
           </Text>
         ) : null}
-        <TextInput
-          multiline
-          onContentSizeChange={scrollToPrompt}
-          onChangeText={onPromptChange}
-          onFocus={scrollToPrompt}
-          placeholder="선택한 서버에서 Codex에게 시킬 일을 입력하세요."
-          placeholderTextColor={colors.mutedLight}
-          style={[styles.input, styles.promptInput]}
-          textAlignVertical="top"
-          value={prompt}
-        />
         <PrimaryButton
           disabled={!canSubmit}
           label={busy ? '전송 중' : '작업 실행'}
@@ -919,11 +987,20 @@ function NewTaskScreen({
 }
 
 function ServersList({
+  busy,
+  onRegistrationDecision,
   onSelectedServerChange,
+  registrationRequests,
   selectedServerId,
   servers,
 }: {
+  busy: boolean;
+  onRegistrationDecision: (
+    requestItem: ServerRegistrationRequestItem,
+    approve: boolean,
+  ) => void;
   onSelectedServerChange: (value: string) => void;
+  registrationRequests: ServerRegistrationRequestItem[];
   selectedServerId: string | null;
   servers: ServerItem[];
 }) {
@@ -933,10 +1010,17 @@ function ServersList({
       data={servers}
       keyExtractor={item => item.id}
       ListHeaderComponent={
-        <ScreenHeading
-          subtitle="작업을 실행할 수 있는 워커 서버 상태입니다."
-          title="서버"
-        />
+        <>
+          <ScreenHeading
+            subtitle="작업을 실행할 수 있는 워커 서버 상태입니다."
+            title="서버"
+          />
+          <RegistrationRequestsPanel
+            busy={busy}
+            onDecision={onRegistrationDecision}
+            requests={registrationRequests}
+          />
+        </>
       }
       ListEmptyComponent={<EmptyState label="등록된 서버가 없습니다." />}
       renderItem={({ item }) => (
@@ -965,6 +1049,83 @@ function ServersList({
         </Pressable>
       )}
     />
+  );
+}
+
+function RegistrationRequestsPanel({
+  busy,
+  onDecision,
+  requests,
+}: {
+  busy: boolean;
+  onDecision: (
+    requestItem: ServerRegistrationRequestItem,
+    approve: boolean,
+  ) => void;
+  requests: ServerRegistrationRequestItem[];
+}) {
+  if (requests.length === 0) {
+    return null;
+  }
+
+  return (
+    <View style={styles.registrationPanel}>
+      <View style={styles.row}>
+        <View style={styles.cardTitleGroup}>
+          <Text style={styles.sectionLabel}>등록 요청</Text>
+          <Text style={styles.helperText}>
+            서버 터미널의 코드와 앱의 코드를 확인하세요.
+          </Text>
+        </View>
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{requests.length}</Text>
+        </View>
+      </View>
+      {requests.map(item => (
+        <View key={item.id} style={styles.registrationCard}>
+          <View style={styles.row}>
+            <View style={styles.cardTitleGroup}>
+              <Text style={styles.cardTitle} numberOfLines={1}>
+                {item.name}
+              </Text>
+              <Text style={styles.meta}>
+                {item.osType} / {item.tailscaleIp}
+              </Text>
+            </View>
+            <View style={styles.verificationBadge}>
+              <Text style={styles.verificationText}>
+                {item.verificationCode}
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.footerMeta}>
+            Fingerprint {compactId(item.fingerprint)} / 만료{' '}
+            {formatDate(item.expiresAt)}
+          </Text>
+          <View style={styles.actionRow}>
+            <PrimaryButton
+              disabled={busy}
+              label="서버 승인"
+              onPress={() => onDecision(item, true)}
+            />
+            <DangerButton
+              disabled={busy}
+              label="거절"
+              onPress={() =>
+                Alert.alert('서버 등록을 거절할까요?', item.name, [
+                  { text: '취소', style: 'cancel' },
+                  {
+                    text: '거절',
+                    style: 'destructive',
+                    onPress: () => onDecision(item, false),
+                  },
+                ])
+              }
+            />
+          </View>
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -1728,6 +1889,50 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     marginTop: 6,
   },
+  registrationPanel: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 12,
+    marginBottom: 2,
+    padding: 14,
+  },
+  registrationCard: {
+    backgroundColor: '#f8fbff',
+    borderColor: colors.primarySoft,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 12,
+  },
+  badge: {
+    alignItems: 'center',
+    backgroundColor: colors.danger,
+    borderRadius: 999,
+    minWidth: 24,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  badgeText: {
+    color: colors.surface,
+    fontFamily: 'sans-serif',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  verificationBadge: {
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    minWidth: 74,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  verificationText: {
+    color: colors.surface,
+    fontFamily: 'sans-serif',
+    fontSize: 16,
+    fontWeight: '900',
+  },
   card: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
@@ -1902,8 +2107,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: -4,
   },
+  dispatchSummary: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: 8,
+    padding: 12,
+  },
+  dispatchSummaryTitle: {
+    color: colors.primary,
+    fontFamily: 'sans-serif',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  dispatchSummaryText: {
+    color: colors.text,
+    fontFamily: 'sans-serif',
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
+    marginTop: 4,
+  },
   promptInput: {
-    minHeight: 132,
+    height: 156,
   },
   pill: {
     borderRadius: 999,

@@ -6,6 +6,7 @@
   "license": "UNLICENSED",
   "main": "src/index.js",
   "scripts": {
+    "register": "node src/register.js",
     "start": "node src/index.js",
     "dev:server": "node dev-scripts/mock-hub.js"
   },

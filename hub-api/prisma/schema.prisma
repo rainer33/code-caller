@@ -44,15 +44,32 @@ enum PushPlatform {
   IOS
 }
 
+enum ServerRegistrationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+  CREDENTIAL_DELIVERED
+}
+
+enum WorkerProvider {
+  CODEX
+  CLAUDE_CODE
+  ANTIGRAVITY
+  OPENCODE
+  GEMINI
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
   passwordHash String
   createdAt    DateTime @default(now())
 
-  servers       Server[]
-  refreshTokens RefreshToken[]
-  pushTokens    PushToken[]
+  servers                    Server[]
+  serverRegistrationRequests ServerRegistrationRequest[]
+  refreshTokens              RefreshToken[]
+  pushTokens                 PushToken[]
 
   @@map("users")
 }
@@ -83,11 +100,56 @@ model Server {
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
-  owner User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  tasks  Task[]
+  owner                      User                        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  tasks                      Task[]
+  registrationRequests       ServerRegistrationRequest[]
+  workerProfiles             WorkerProfile[]
 
   @@index([ownerId])
   @@map("servers")
+}
+
+model ServerRegistrationRequest {
+  id                String                   @id @default(uuid())
+  ownerId           String
+  name              String
+  osType            OsType
+  tailscaleIp       String
+  fingerprint       String
+  verificationCode  String
+  requestSecretHash String
+  status            ServerRegistrationStatus @default(PENDING)
+  expiresAt         DateTime
+  serverId          String?
+  apiKeyCiphertext  String?
+  apiKeyIv          String?
+  apiKeyAuthTag     String?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  owner  User    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  server Server? @relation(fields: [serverId], references: [id], onDelete: SetNull)
+
+  @@index([ownerId, status])
+  @@index([fingerprint])
+  @@map("server_registration_requests")
+}
+
+model WorkerProfile {
+  id           String         @id @default(uuid())
+  serverId     String
+  provider     WorkerProvider
+  profileName  String
+  enabled      Boolean        @default(true)
+  capabilities Json
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  @@index([serverId])
+  @@unique([serverId, provider, profileName])
+  @@map("worker_profiles")
 }
 
 model Task {
