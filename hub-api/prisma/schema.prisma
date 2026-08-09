@@ -1,0 +1,134 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OsType {
+  UBUNTU
+  WINDOWS
+  MACOS
+}
+
+enum ServerStatus {
+  ONLINE
+  OFFLINE
+}
+
+enum WorkerType {
+  CODEX
+  CLAUDE
+  GEMINI
+}
+
+enum TaskStatus {
+  QUEUED
+  RUNNING
+  AWAITING_APPROVAL
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PushPlatform {
+  ANDROID
+  IOS
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  servers       Server[]
+  refreshTokens RefreshToken[]
+  pushTokens    PushToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String
+  revoked   Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model Server {
+  id               String       @id @default(uuid())
+  ownerId          String
+  name             String
+  osType           OsType
+  tailscaleIp      String
+  apiKeyHash       String
+  status           ServerStatus @default(OFFLINE)
+  lastHeartbeatAt  DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  owner User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  tasks  Task[]
+
+  @@index([ownerId])
+  @@map("servers")
+}
+
+model Task {
+  id         String     @id @default(uuid())
+  serverId   String
+  workerType WorkerType
+  status     TaskStatus @default(QUEUED)
+  input      Json
+  result     Json?
+  logs       String     @default("")
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  server   Server    @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  approval Approval?
+
+  @@index([serverId])
+  @@map("tasks")
+}
+
+model Approval {
+  id          String         @id @default(uuid())
+  taskId      String         @unique
+  status      ApprovalStatus @default(PENDING)
+  requestedAt DateTime       @default(now())
+  decidedAt   DateTime?
+  reason      String?
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@map("approvals")
+}
+
+model PushToken {
+  id       String       @id @default(uuid())
+  userId   String
+  token    String
+  platform PushPlatform
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, token])
+  @@map("push_tokens")
+}
