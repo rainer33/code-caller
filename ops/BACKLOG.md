@@ -35,4 +35,4 @@
 - [x] P0 — **Worker provider/profile/capability 구조화 1차**: 서버별 `WorkerProfile` 모델과 Codex/Claude Code/Antigravity/OpenCode provider 기반 확장 토대 추가 — `d5e1865`
 - [x] `[화면]` P0 — **New Task 목표-first UX 1차**: 프롬프트를 첫 단계로 이동하고 실행 대상 요약/서버/worker 선택 순서로 재배치 — `d5e1865`
 - [x] P1 — **우분투 워커 도그푸딩**: `Ubuntu-Codex`를 승인 기반 등록 플로우로 Hub에 편입하고 `code-caller-agent-daemon.service` systemd user service로 상시 실행. Hub `/daemon` 연결 확인: `e1f1370a-7059-428f-be39-fcfb97d01303` — 2026-08-09
-- [x] P0 — **용량 기반 자동 failover 시스템 1차**: `WorkerProfile` 기반 선호 워커 체인과 디스패치 실패 시 같은 소유자의 온라인 호환 워커로 즉시 폴백하는 Hub 토대 추가 — `e6ab248`
+- [x] P0 — **용량 기반 자동 failover 시스템 1차**: `WorkerProfile` 기반 선호 워커 체인과 디스패치 실패 시 같은 소유자의 온라인 호환 워커로 즉시 폴백하는 Hub 토대 추가 — `d0fb67b`
