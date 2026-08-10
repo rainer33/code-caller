@@ -3,8 +3,8 @@
   "owner": "codex",
   "task": "worker-failover-foundation",
   "startedAt": "2026-08-10T04:11:43.000Z",
-  "updatedAt": "2026-08-10T04:12:33.000Z",
-  "summary": "Implemented dispatch-time fallback across same-owner online compatible worker profiles.",
+  "updatedAt": "2026-08-10T04:18:10.000Z",
+  "summary": "Implemented, merged, pushed, and deployed dispatch-time fallback across same-owner online compatible worker profiles.",
   "evidence": [
     ".claude/skills/design-first-scaffold/SKILL.md read before work",
     "ops/phase4/design/worker-failover-foundation.md",
@@ -12,7 +12,9 @@
     "hub-api/src/tasks/tasks.processor.ts",
     "cd hub-api && npm run build",
     "cd hub-api && npx prisma validate",
-    "cd hub-api && npx ts-node -e <WorkerRegistry candidate ordering smoke test>"
+    "cd hub-api && npx ts-node -e <WorkerRegistry candidate ordering smoke test>",
+    "git push origin main -> 9533c5b",
+    "ssh jahmin@172.30.1.83: git pull --ff-only origin main; npx prisma migrate deploy; npx prisma generate; npm run build; systemctl --user restart hub-api; login_health=ok"
   ],
   "next": "Add daemon capacity failure signals and stuck RUNNING watchdog in follow-up work.",
   "error": null
