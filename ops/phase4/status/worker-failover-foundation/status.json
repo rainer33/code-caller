@@ -1,0 +1,19 @@
+{
+  "status": "success",
+  "owner": "codex",
+  "task": "worker-failover-foundation",
+  "startedAt": "2026-08-10T04:11:43.000Z",
+  "updatedAt": "2026-08-10T04:12:33.000Z",
+  "summary": "Implemented dispatch-time fallback across same-owner online compatible worker profiles.",
+  "evidence": [
+    ".claude/skills/design-first-scaffold/SKILL.md read before work",
+    "ops/phase4/design/worker-failover-foundation.md",
+    "hub-api/src/workers/worker-registry.service.ts",
+    "hub-api/src/tasks/tasks.processor.ts",
+    "cd hub-api && npm run build",
+    "cd hub-api && npx prisma validate",
+    "cd hub-api && npx ts-node -e <WorkerRegistry candidate ordering smoke test>"
+  ],
+  "next": "Add daemon capacity failure signals and stuck RUNNING watchdog in follow-up work.",
+  "error": null
+}
