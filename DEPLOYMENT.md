@@ -14,6 +14,7 @@ The Prisma migrations deployed so far:
 
 - `20260809041332_init`
 - `20260809095000_server_registration_requests`
+- `20260813000000_task_attempts`
 
 The initial account was seeded:
 
@@ -113,3 +114,6 @@ Known deployed daemon ids as of 2026-08-09:
 - Server onboarding requires `npx prisma migrate deploy`, `npx prisma generate`,
   `npm run build`, and `systemctl --user restart hub-api` after pulling the
   latest code.
+- RUNNING task failover watchdog was deployed on 2026-08-13 from `ce1cf3e`.
+  The deployment used the active Tailscale address `100.92.64.11` because LAN
+  SSH to `172.30.1.83` timed out during that cycle.

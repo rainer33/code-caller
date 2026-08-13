@@ -16,8 +16,10 @@
     "cd hub-api && npx prisma generate",
     "cd hub-api && npm run build",
     "cd hub-api && npx prisma migrate deploy against local localhost:5432/ai_commander",
-    "cd hub-api && TASK_WATCHDOG_TIMEOUT_MS=1000 TASK_WATCHDOG_MAX_REQUEUES=2 npx ts-node -e <watchdog smoke test> -> handled=1, status=QUEUED, attemptStatus=TIMED_OUT, candidate=Smoke-Fallback"
+    "cd hub-api && TASK_WATCHDOG_TIMEOUT_MS=1000 TASK_WATCHDOG_MAX_REQUEUES=2 npx ts-node -e <watchdog smoke test> -> handled=1, status=QUEUED, attemptStatus=TIMED_OUT, candidate=Smoke-Fallback",
+    "git push origin main -> ce1cf3e",
+    "ssh jahmin@100.92.64.11: git pull --ff-only origin main; npx prisma migrate deploy; npx prisma generate; npm run build; systemctl --user restart hub-api; login_health=ok"
   ],
-  "next": "Deploy migration and Hub restart on Ubuntu, then record final merge/push hash. Local feature commit: c03fe11.",
+  "next": "Daemon/adapter structured capacity-exhaustion reasons remain as a P1 follow-up.",
   "error": null
 }
