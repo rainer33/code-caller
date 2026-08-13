@@ -18,6 +18,6 @@
     "cd hub-api && npx prisma migrate deploy against local localhost:5432/ai_commander",
     "cd hub-api && TASK_WATCHDOG_TIMEOUT_MS=1000 TASK_WATCHDOG_MAX_REQUEUES=2 npx ts-node -e <watchdog smoke test> -> handled=1, status=QUEUED, attemptStatus=TIMED_OUT, candidate=Smoke-Fallback"
   ],
-  "next": "Deploy migration and Hub restart on Ubuntu, then record final merge/push hash. Local feature commit: 125e1be.",
+  "next": "Deploy migration and Hub restart on Ubuntu, then record final merge/push hash. Local feature commit: c03fe11.",
   "error": null
 }
