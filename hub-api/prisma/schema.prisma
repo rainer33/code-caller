@@ -33,6 +33,14 @@ enum TaskStatus {
   CANCELLED
 }
 
+enum TaskAttemptStatus {
+  DISPATCHING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  TIMED_OUT
+}
+
 enum ApprovalStatus {
   PENDING
   APPROVED
@@ -104,6 +112,7 @@ model Server {
   tasks                      Task[]
   registrationRequests       ServerRegistrationRequest[]
   workerProfiles             WorkerProfile[]
+  taskAttempts               TaskAttempt[]
 
   @@index([ownerId])
   @@map("servers")
@@ -165,9 +174,29 @@ model Task {
 
   server   Server    @relation(fields: [serverId], references: [id], onDelete: Cascade)
   approval Approval?
+  attempts TaskAttempt[]
 
   @@index([serverId])
+  @@index([status, updatedAt])
   @@map("tasks")
+}
+
+model TaskAttempt {
+  id            String            @id @default(uuid())
+  taskId        String
+  serverId      String
+  status        TaskAttemptStatus @default(DISPATCHING)
+  failureReason String?
+  startedAt     DateTime          @default(now())
+  lastSeenAt    DateTime          @default(now())
+  finishedAt    DateTime?
+
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, status])
+  @@index([status, lastSeenAt])
+  @@map("task_attempts")
 }
 
 model Approval {

@@ -1,0 +1,23 @@
+{
+  "status": "success",
+  "owner": "codex",
+  "task": "worker-failover-watchdog",
+  "startedAt": "2026-08-13T09:40:00.000Z",
+  "updatedAt": "2026-08-13T09:59:12.000Z",
+  "summary": "Implemented RUNNING-task inactivity watchdog with task attempt tracking and timed-out server exclusion for subsequent dispatch candidates.",
+  "evidence": [
+    ".claude/skills/design-first-scaffold/SKILL.md read before work",
+    "ops/phase4/design/worker-failover-watchdog.md",
+    "hub-api/prisma/migrations/20260813000000_task_attempts/migration.sql",
+    "hub-api/src/tasks/tasks.processor.ts",
+    "hub-api/src/tasks/tasks.service.ts",
+    "hub-api/src/workers/worker-registry.service.ts",
+    "cd hub-api && npx prisma validate",
+    "cd hub-api && npx prisma generate",
+    "cd hub-api && npm run build",
+    "cd hub-api && npx prisma migrate deploy against local localhost:5432/ai_commander",
+    "cd hub-api && TASK_WATCHDOG_TIMEOUT_MS=1000 TASK_WATCHDOG_MAX_REQUEUES=2 npx ts-node -e <watchdog smoke test> -> handled=1, status=QUEUED, attemptStatus=TIMED_OUT, candidate=Smoke-Fallback"
+  ],
+  "next": "Deploy migration and Hub restart on Ubuntu, then record final merge/push hash. Local feature commit: 125e1be.",
+  "error": null
+}

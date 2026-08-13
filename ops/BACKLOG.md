@@ -9,7 +9,7 @@
 ## 진행 중 / 대기 (우선순위 순)
 
 - [ ] `[화면]` P0 — **모바일 앱 화면 수정 개선 최우선 루프**: 사용자가 Codex 데스크톱 앱에서 실제 화면을 보며 지시하는 UI/UX 개선 작업을 최우선으로 처리한다. 이 작업은 Claude Code에서 지시하기 어렵기 때문에 앞으로 사용자와 Codex가 직접 진행한다. 구현 전 `mobile-app/App.tsx`, `ops/phase3/design/mobile-app-design.md`, `ops/phase3b/design/mobile-task-dispatch-design.md`를 확인하고, 구현 후 Android release build로 검증한다.
-- [ ] P0 — **용량 기반 자동 failover 시스템 2차**: 1차(`worker-failover-foundation`)에서 디스패치 실패 시 같은 소유자의 온라인 호환 워커로 폴백하는 토대는 추가됨. 다음은 daemon/adapter가 용량 소진을 구조화된 실패 사유로 보고하게 하고, `RUNNING` 장시간 무응답 watchdog으로 다음 후보에 재할당하는 단계. 태스크 멱등/재개 가능성은 이 2차 설계에서 확정해야 함.
+- [ ] P1 — **Daemon 용량 소진 구조화 실패 사유**: failover 2차 중 `RUNNING` 장시간 무응답 watchdog과 attempt tracking은 추가됨. 남은 작업은 daemon/adapter가 용량 소진을 구조화된 실패 사유로 보고하게 하고, 해당 사유를 즉시 다음 후보에 재할당하는 경로를 추가하는 것.
 - [ ] `[화면]` P1 — **New Task 음성 입력**: Android/iPhone 모두를 고려해 마이크 권한과 음성 인식 라이브러리를 선택한다. 음성은 곧바로 실행하지 않고 editable prompt에 반영하며, 사용자가 확인 후 작업 실행 버튼을 누르게 한다.
 - [ ] `[화면]` P1 — **iPhone 지원 준비**: React Native iOS 빌드, Safe Area, APNs/Firebase 설정, 네트워크 권한, iOS 배포/실기기 테스트 경로를 정리한다.
 - [ ] P1 — **원본 4트랙 프롬프트 버전관리**: 2026-08-09 초기에 우분투 4개 워커(deploy/dev/marketing/QA)에게 즉흥적으로 줬던 프롬프트들이 세션 스크래치패드에만 있고 저장소에 없음. 재사용 가능하도록 `ops/prompts/`에 정리해서 커밋.
@@ -36,3 +36,4 @@
 - [x] `[화면]` P0 — **New Task 목표-first UX 1차**: 프롬프트를 첫 단계로 이동하고 실행 대상 요약/서버/worker 선택 순서로 재배치 — `d5e1865`
 - [x] P1 — **우분투 워커 도그푸딩**: `Ubuntu-Codex`를 승인 기반 등록 플로우로 Hub에 편입하고 `code-caller-agent-daemon.service` systemd user service로 상시 실행. Hub `/daemon` 연결 확인: `e1f1370a-7059-428f-be39-fcfb97d01303` — 2026-08-09
 - [x] P0 — **용량 기반 자동 failover 시스템 1차**: `WorkerProfile` 기반 선호 워커 체인과 디스패치 실패 시 같은 소유자의 온라인 호환 워커로 즉시 폴백하는 Hub 토대 추가 — `d0fb67b`
+- [x] P0 — **용량 기반 자동 failover 시스템 2차 / RUNNING watchdog**: `TaskAttempt` 이력, stale `RUNNING` watchdog, 타임아웃 서버 후보 제외, 재큐잉/반복 실패 처리 추가 — `125e1be`

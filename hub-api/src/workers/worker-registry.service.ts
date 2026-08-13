@@ -33,6 +33,7 @@ export class WorkerRegistry {
   async getDispatchCandidates(
     workerType: WorkerType,
     preferredServerId: string,
+    excludedServerIds: string[] = [],
   ): Promise<WorkerDispatchCandidate[]> {
     this.get(workerType);
     const provider = this.providerForWorkerType(workerType);
@@ -51,6 +52,7 @@ export class WorkerRegistry {
         server: {
           ownerId: preferredServer.ownerId,
           status: ServerStatus.ONLINE,
+          id: excludedServerIds.length > 0 ? { notIn: excludedServerIds } : undefined,
         },
       },
       include: { server: { select: { id: true, name: true } } },
