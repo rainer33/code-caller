@@ -1,5 +1,5 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { ForbiddenException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { Queue } from 'bullmq';
 import { Task, TaskStatus as PrismaTaskStatus } from '@prisma/client';
@@ -14,11 +14,14 @@ import { CreateTaskDto } from './dto/create-task.dto';
 export const TASK_DISPATCH_QUEUE = 'task-dispatch';
 export const TASK_WATCHDOG_JOB = 'watchdog';
 export const TASK_WATCHDOG_REPEAT_JOB_ID = 'task-watchdog';
+export const RETRYABLE_CAPACITY_FAILURE_PREFIX = 'CAPACITY_EXHAUSTED';
 
 type TaskWithOwner = Task & { server: { ownerId: string } };
 
 @Injectable()
 export class TasksService implements OnModuleInit {
+  private readonly logger = new Logger(TasksService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly serversService: ServersService,
@@ -92,6 +95,11 @@ export class TasksService implements OnModuleInit {
 
   @OnEvent(INTERNAL_EVENTS.DAEMON_TASK_RESULT)
   async handleDaemonTaskResult(payload: DaemonTaskResultPayload) {
+    if (this.isRetryableCapacityFailure(payload)) {
+      await this.handleRetryableCapacityFailure(payload);
+      return;
+    }
+
     await this.finishRunningAttempt(
       payload.taskId,
       payload.status === 'COMPLETED' ? 'SUCCEEDED' : 'FAILED',
@@ -148,6 +156,103 @@ export class TasksService implements OnModuleInit {
     const { server, ...publicTask } = task;
     this.realtime.notifyUser(server.ownerId, APP_OUTBOUND.TASK_UPDATED, publicTask);
     return task;
+  }
+
+  private async updateTaskAndNotify(
+    taskId: string,
+    data: {
+      status?: PrismaTaskStatus;
+      result?: unknown;
+      logs?: string;
+    },
+  ): Promise<TaskWithOwner> {
+    const task = await this.prisma.task.update({
+      where: { id: taskId },
+      data: {
+        ...(data.status ? { status: data.status } : {}),
+        ...(data.result !== undefined ? { result: data.result as object } : {}),
+        ...(data.logs !== undefined ? { logs: data.logs } : {}),
+      },
+      include: { server: { select: { ownerId: true } } },
+    });
+    const { server, ...publicTask } = task;
+    this.realtime.notifyUser(server.ownerId, APP_OUTBOUND.TASK_UPDATED, publicTask);
+    return task;
+  }
+
+  private isRetryableCapacityFailure(payload: DaemonTaskResultPayload) {
+    return (
+      payload.status === 'FAILED' &&
+      payload.failure?.category === RETRYABLE_CAPACITY_FAILURE_PREFIX &&
+      payload.failure.retryable !== false
+    );
+  }
+
+  private async handleRetryableCapacityFailure(payload: DaemonTaskResultPayload) {
+    const task = await this.prisma.task.findUnique({
+      where: { id: payload.taskId },
+      include: { server: { select: { ownerId: true } } },
+    });
+    if (!task) return;
+
+    const reason = this.formatStructuredFailureReason(payload);
+    await this.finishRunningAttempt(task.id, 'FAILED', reason);
+
+    const excludedServerIds = await this.retryExcludedServerIds(task.id);
+    const candidates = await this.workerRegistry.getDispatchCandidates(
+      task.workerType,
+      task.serverId,
+      excludedServerIds,
+    );
+    const logLine = `\n[hub] Retryable capacity failure from server ${task.serverId}: ${payload.failure?.message ?? 'capacity exhausted'}\n`;
+
+    if (candidates.length === 0) {
+      const failed = await this.updateTaskAndNotify(task.id, {
+        status: 'FAILED',
+        result: payload.result,
+        logs: `${task.logs}${logLine}[hub] Capacity failover exhausted: no remaining online compatible worker candidates.\n`,
+      });
+      this.logger.warn(`Task ${task.id} failed: capacity failover exhausted.`);
+      await this.notifications.sendPush(
+        failed.server.ownerId,
+        '작업 실패',
+        `작업(${failed.id})이 작업자 용량 소진 후 실패했습니다.`,
+      );
+      return;
+    }
+
+    await this.updateTaskAndNotify(task.id, {
+      status: 'QUEUED',
+      logs: `${task.logs}${logLine}[hub] Requeued after capacity failure; next candidate: ${candidates[0].serverName}/${candidates[0].profileName}.\n`,
+    });
+    await this.requeueTask(task.id);
+    this.logger.warn(
+      `Task ${task.id} requeued after capacity failure. next=${candidates[0].serverId}`,
+    );
+  }
+
+  private async retryExcludedServerIds(taskId: string): Promise<string[]> {
+    const attempts = await this.prisma.taskAttempt.findMany({
+      where: {
+        taskId,
+        OR: [
+          { status: 'TIMED_OUT' },
+          {
+            status: 'FAILED',
+            failureReason: { startsWith: RETRYABLE_CAPACITY_FAILURE_PREFIX },
+          },
+        ],
+      },
+      select: { serverId: true },
+      distinct: ['serverId'],
+    });
+    return attempts.map((attempt) => attempt.serverId);
+  }
+
+  private formatStructuredFailureReason(payload: DaemonTaskResultPayload) {
+    const message = payload.failure?.message ?? 'Retryable worker capacity failure.';
+    const detail = payload.failure?.detail ? ` detail=${payload.failure.detail.slice(0, 500)}` : '';
+    return `${RETRYABLE_CAPACITY_FAILURE_PREFIX}: ${message}${detail}`;
   }
 
   private async touchRunningAttempt(taskId: string) {

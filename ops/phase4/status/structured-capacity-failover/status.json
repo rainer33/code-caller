@@ -1,0 +1,24 @@
+{
+  "status": "success",
+  "owner": "codex",
+  "task": "structured-capacity-failover",
+  "startedAt": "2026-08-14T01:01:49.000Z",
+  "updatedAt": "2026-08-14T01:06:28.000Z",
+  "summary": "Implemented daemon-reported structured capacity exhaustion and Hub immediate reassignment for retryable worker capacity failures.",
+  "evidence": [
+    ".claude/skills/design-first-scaffold/SKILL.md read before work",
+    "ops/phase4/design/structured-capacity-failover.md",
+    "agent-daemon/src/failure-detector.js",
+    "agent-daemon/src/runner.js",
+    "hub-api/src/realtime/events.ts",
+    "hub-api/src/tasks/tasks.service.ts",
+    "hub-api/src/tasks/tasks.processor.ts",
+    "cd agent-daemon && npm run dev:server",
+    "cd hub-api && npx prisma validate",
+    "cd hub-api && npx prisma generate",
+    "cd hub-api && npm run build",
+    "cd hub-api && npx ts-node <capacity failover smoke test> -> taskStatus=QUEUED, dispatchJobs=1, failedAttemptStatus=FAILED, nextCandidate=server B"
+  ],
+  "next": "Deploy Hub and daemon updates to the live Ubuntu/MacBook services, then record worklog.",
+  "error": null
+}

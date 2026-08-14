@@ -16,7 +16,7 @@ Hub↔daemon contract in this repo, mirroring `hub-api/src/realtime/events.ts` a
 | Daemon → Hub | `task:statusUpdate` | `{ taskId, status: 'RUNNING' }` |
 | Daemon → Hub | `task:log` | `{ taskId, chunk }` per stdout/stderr chunk |
 | Daemon → Hub | `approval:request` | `{ taskId, reason }` |
-| Daemon → Hub | `task:result` | `{ taskId, status: 'COMPLETED'\|'FAILED', result }` |
+| Daemon → Hub | `task:result` | `{ taskId, status: 'COMPLETED'\|'FAILED', failure?, result }` |
 | Hub → Daemon | `task:submit` | `{ taskId, input }` |
 | Hub → Daemon | `task:cancel` | `{ taskId }` |
 | Hub → Daemon | `approval:decision` | `{ taskId, approved, reason }` |
@@ -129,6 +129,11 @@ prompt can’t inject shell syntax. Set `CODEX_USE_SHELL=1` only if you need it
   If the child was killed in response to a Hub cancel/rejection, the daemon
   does **not** emit `task:result` — the Hub already owns that task’s final
   state (CANCELLED).
+- If a failed child output tail matches capacity, quota, rate-limit, or
+  temporary-overload wording, the daemon includes
+  `failure: { category: 'CAPACITY_EXHAUSTED', retryable: true, message, detail }`.
+  The Hub treats this as a retryable worker-capacity failure and reassigns the
+  same task to the next compatible online worker when one is available.
 - On disconnect the daemon buffers every daemon-originated event in memory and
   replays them in order on reconnect.
 

@@ -6,7 +6,12 @@ import {
   WorkerDispatchCandidate,
   WorkerRegistry,
 } from '../workers/worker-registry.service';
-import { TASK_DISPATCH_QUEUE, TASK_WATCHDOG_JOB, TasksService } from './tasks.service';
+import {
+  RETRYABLE_CAPACITY_FAILURE_PREFIX,
+  TASK_DISPATCH_QUEUE,
+  TASK_WATCHDOG_JOB,
+  TasksService,
+} from './tasks.service';
 
 @Processor(TASK_DISPATCH_QUEUE)
 export class TasksProcessor extends WorkerHost {
@@ -41,7 +46,7 @@ export class TasksProcessor extends WorkerHost {
       return;
     }
 
-    const excludedServerIds = await this.timedOutServerIds(task.id);
+    const excludedServerIds = await this.retryExcludedServerIds(task.id);
     const candidates = await this.workerRegistry.getDispatchCandidates(
       task.workerType,
       task.serverId,
@@ -178,9 +183,18 @@ export class TasksProcessor extends WorkerHost {
     });
   }
 
-  private async timedOutServerIds(taskId: string): Promise<string[]> {
+  private async retryExcludedServerIds(taskId: string): Promise<string[]> {
     const attempts = await this.prisma.taskAttempt.findMany({
-      where: { taskId, status: 'TIMED_OUT' },
+      where: {
+        taskId,
+        OR: [
+          { status: 'TIMED_OUT' },
+          {
+            status: 'FAILED',
+            failureReason: { startsWith: RETRYABLE_CAPACITY_FAILURE_PREFIX },
+          },
+        ],
+      },
       select: { serverId: true },
       distinct: ['serverId'],
     });

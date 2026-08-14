@@ -2,6 +2,7 @@
 
 const { spawn } = require('child_process');
 const { detect } = require('./approval-detector');
+const { detectStructuredFailure } = require('./failure-detector');
 
 const RESUME_INPUT = 'y\n';
 
@@ -215,13 +216,20 @@ class TaskRunner {
     }
 
     const ok = code === 0 && !signal;
+    const failure = detectStructuredFailure({
+      exitCode: code,
+      signal,
+      output: this.tail || this.lastChunk,
+    });
     this.client.emit('task:result', {
       taskId: this.taskId,
       status: ok ? 'COMPLETED' : 'FAILED',
+      ...(failure ? { failure } : {}),
       result: {
         exitCode: code,
         signal: signal || null,
         lastChunk: this.lastChunk,
+        ...(failure ? { failure } : {}),
       },
     });
     this.client.dropTask(this.taskId);
@@ -230,10 +238,16 @@ class TaskRunner {
   finishFailed(reason) {
     if (this.exitHandled) return;
     this.exitHandled = true;
+    const failure = detectStructuredFailure({
+      exitCode: null,
+      signal: null,
+      output: reason,
+    });
     this.client.emit('task:result', {
       taskId: this.taskId,
       status: 'FAILED',
-      result: { error: reason },
+      ...(failure ? { failure } : {}),
+      result: { error: reason, ...(failure ? { failure } : {}) },
     });
     this.client.dropTask(this.taskId);
   }

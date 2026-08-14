@@ -42,9 +42,17 @@ export interface DaemonTaskLogPayload {
   chunk: string;
 }
 
+export interface DaemonTaskFailurePayload {
+  category: 'CAPACITY_EXHAUSTED' | 'PROCESS_ERROR' | 'UNKNOWN';
+  retryable?: boolean;
+  message?: string;
+  detail?: string;
+}
+
 export interface DaemonTaskResultPayload {
   taskId: string;
   status: 'COMPLETED' | 'FAILED';
+  failure?: DaemonTaskFailurePayload;
   result: unknown;
 }
 

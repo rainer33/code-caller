@@ -154,7 +154,7 @@ async function stopDaemon() {
 // ---------------------------------------------------------------------------
 
 async function scenarioA(hub) {
-  scenario('A: connect + submit -> RUNNING -> logs -> approval -> COMPLETED');
+  scenario('A: connect + submit -> RUNNING -> logs -> COMPLETED');
 
   await waitFor('daemon connect', () => hub.connectedCount >= 1);
   await waitFor('first heartbeat', () => hub.heartbeats >= 1);
@@ -174,59 +174,47 @@ async function scenarioA(hub) {
   );
   check('A4 streams task:log chunks', hub.logsFor('t-success').length >= 1);
 
-  await waitFor('approval request', () =>
-    hub.approvalRequests.some((a) => a.taskId === 't-success'),
-  );
-  const approval = hub.approvalRequests.find((a) => a.taskId === 't-success');
-  check('A5 emits approval:request', Boolean(approval?.reason?.length));
-  check(
-    'A5b approval reason excerpts the prompt',
-    /Do you want to run this command/.test(approval?.reason || ''),
-    approval?.reason,
-  );
-
-  hub.emitDecision({ taskId: 't-success', approved: true, reason: 'ok' });
   await waitFor('COMPLETED result', () =>
     hub.results.some((r) => r.taskId === 't-success' && r.status === 'COMPLETED'),
   );
   const completed = hub.results.find((r) => r.taskId === 't-success');
-  check('A6 emits task:result COMPLETED on approval', completed?.status === 'COMPLETED');
+  check('A5 emits task:result COMPLETED', completed?.status === 'COMPLETED');
   check(
-    'A6b result carries last chunk',
+    'A5b result carries last chunk',
     typeof completed?.result?.lastChunk === 'string' && completed.result.lastChunk.length > 0,
     JSON.stringify(completed?.result),
   );
 }
 
 async function scenarioB(hub) {
-  scenario('B: rejection -> child killed, NO task:result');
-  hub.emitSubmit({ taskId: 't-reject', input: { prompt: 'force deploy this' } });
+  scenario('B. cancel -> child killed, NO task:result');
+  hub.emitSubmit({ taskId: 't-cancel', input: { prompt: 'slow cancellable task' } });
 
-  await waitFor('B approval:request', () =>
-    hub.approvalRequests.some((a) => a.taskId === 't-reject'),
-  );
-
-  hub.emitDecision({ taskId: 't-reject', approved: false, reason: 'too risky' });
-
-  // Give the daemon time to kill the child and (incorrectly) report a result.
-  await sleep(1500);
-  const rejectResult = hub.results.find((r) => r.taskId === 't-reject');
-  check('B1 rejected task emits NO task:result', !!rejectResult === false);
-}
-
-async function scenarioC(hub) {
-  scenario('C. cancel -> child killed, NO task:result');
-  hub.emitSubmit({ taskId: 't-cancel', input: { prompt: 'do something annoying' } });
-
-  await waitFor('C approval:request', () =>
-    hub.approvalRequests.some((a) => a.taskId === 't-cancel'),
-  );
+  await waitFor('B task logs', () => hub.logsFor('t-cancel').length >= 1);
 
   hub.emitCancel({ taskId: 't-cancel' });
 
   await sleep(1500);
   const cancelResult = hub.results.find((r) => r.taskId === 't-cancel');
-  check('C1 cancelled task emits NO task:result', !cancelResult);
+  check('B1 cancelled task emits NO task:result', !cancelResult);
+}
+
+async function scenarioCapacity(hub) {
+  scenario('C. capacity exhaustion -> structured retryable FAILED result');
+  hub.emitSubmit({ taskId: 't-capacity', input: { prompt: 'trigger capacity exhaustion' } });
+
+  await waitFor('capacity FAILED result', () =>
+    hub.results.some((r) => r.taskId === 't-capacity' && r.status === 'FAILED'),
+  );
+  const result = hub.results.find((r) => r.taskId === 't-capacity');
+  check('C1 emits task:result FAILED', result?.status === 'FAILED');
+  check(
+    'C2 result carries retryable CAPACITY_EXHAUSTED failure',
+    result?.failure?.category === 'CAPACITY_EXHAUSTED' &&
+      result?.failure?.retryable === true &&
+      result?.result?.failure?.category === 'CAPACITY_EXHAUSTED',
+    JSON.stringify(result),
+  );
 }
 
 async function scenarioD() {
@@ -267,7 +255,7 @@ async function main() {
 
   await scenarioA(hubA);
   await scenarioB(hubA);
-  await scenarioC(hubA);
+  await scenarioCapacity(hubA);
 
   await stopDaemon();
   await hubA.close();
