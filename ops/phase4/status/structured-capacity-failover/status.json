@@ -3,7 +3,7 @@
   "owner": "codex",
   "task": "structured-capacity-failover",
   "startedAt": "2026-08-14T01:01:49.000Z",
-  "updatedAt": "2026-08-14T01:06:28.000Z",
+  "updatedAt": "2026-08-14T01:14:05.000Z",
   "summary": "Implemented daemon-reported structured capacity exhaustion and Hub immediate reassignment for retryable worker capacity failures.",
   "evidence": [
     ".claude/skills/design-first-scaffold/SKILL.md read before work",
@@ -17,8 +17,11 @@
     "cd hub-api && npx prisma validate",
     "cd hub-api && npx prisma generate",
     "cd hub-api && npm run build",
-    "cd hub-api && npx ts-node <capacity failover smoke test> -> taskStatus=QUEUED, dispatchJobs=1, failedAttemptStatus=FAILED, nextCandidate=server B"
+    "cd hub-api && npx ts-node <capacity failover smoke test> -> taskStatus=QUEUED, dispatchJobs=1, failedAttemptStatus=FAILED, nextCandidate=server B",
+    "git push origin main -> e90c84c",
+    "ssh jahmin@100.92.64.11: git pull --ff-only origin main; npx prisma migrate deploy; npx prisma generate; npm run build; systemctl --user restart hub-api; systemctl --user restart code-caller-agent-daemon; services active; local /servers health=401; HEAD=e90c84c",
+    "launchctl kickstart -k gui/501/com.codecaller.agent-daemon -> MacBook daemon running pid=81901"
   ],
-  "next": "Deploy Hub and daemon updates to the live Ubuntu/MacBook services, then record worklog.",
+  "next": "Record worklog in Notion and Obsidian.",
   "error": null
 }
