@@ -1,0 +1,25 @@
+{
+  "status": "success",
+  "owner": "codex",
+  "task": "four-track-prompts",
+  "startedAt": "2026-08-15T10:01:27+09:00",
+  "updatedAt": "2026-08-15T10:05:00+09:00",
+  "summary": "Created durable reusable prompts for the original deploy/dev/marketing/QA four-track delegation pattern based on repository branch and artifact evidence.",
+  "evidence": [
+    ".claude/skills/design-first-scaffold/SKILL.md read before work",
+    "ops/BACKLOG.md selected non-screen P1 four-track prompt versioning",
+    "git branch history inspected for deploy/ubuntu, feature/agent-daemon, docs/marketing, qa/hub-api-smoke",
+    "ops/phase4/design/four-track-prompts.md",
+    "ops/prompts/four-track-commander.md",
+    "ops/prompts/four-track-deploy.md",
+    "ops/prompts/four-track-dev.md",
+    "ops/prompts/four-track-marketing.md",
+    "ops/prompts/four-track-qa.md",
+    "for f in ops/prompts/four-track-*.md; do rg -n \"Target branch|End with|FOUR_TRACK\" \"$f\"; done",
+    "rg -n -i \"password|token|api[_ -]?key|secret|bearer|credential|admin@example.com|458394\" ops/prompts/four-track-*.md ops/phase4/design/four-track-prompts.md -> policy-only references, no secret values",
+    "git diff --check",
+    "git commit 2e38ca0"
+  ],
+  "next": "Merge to main, push, and publish headless worklog.",
+  "error": null
+}
