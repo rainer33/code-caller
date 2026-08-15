@@ -1,0 +1,15 @@
+{
+  "status": "running",
+  "owner": "codex",
+  "task": "four-track-prompts",
+  "startedAt": "2026-08-15T10:01:27+09:00",
+  "updatedAt": "2026-08-15T10:01:27+09:00",
+  "summary": "Creating durable reusable prompts for the original deploy/dev/marketing/QA four-track delegation pattern.",
+  "evidence": [
+    ".claude/skills/design-first-scaffold/SKILL.md read before work",
+    "ops/BACKLOG.md selected non-screen P1 four-track prompt versioning",
+    "git branch history inspected for deploy/ubuntu, feature/agent-daemon, docs/marketing, qa/hub-api-smoke"
+  ],
+  "next": "Validate prompt files, commit, merge, push, and update backlog.",
+  "error": null
+}
