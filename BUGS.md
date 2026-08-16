@@ -1,5 +1,70 @@
 # BUGS.md — QA Findings for code-caller Hub API & Agent Daemon Integration
 
+## 2026-08-16 Regression Cycle: Phase 3/3b + Worker Failover Follow-up
+
+**Test Date**: 2026-08-16
+**Branch**: `feature/qa-regression-cycle`
+**Scope**: Phase 3/3b mobile build surface, Hub API Prisma/build surface, agent-daemon mock integration, and deployed Hub reachability after worker failover/watchdog/capacity changes.
+
+### PASS: Hub API schema and build
+
+**Command**:
+```bash
+cd hub-api
+npx prisma validate && npx prisma generate && npm run build
+```
+
+**Status**: PASS — Prisma schema validates, Prisma Client generates, and Nest build completes.
+
+### PASS: Agent daemon mock integration regression
+
+**Command**:
+```bash
+cd agent-daemon
+npm run dev:server
+```
+
+**Status**: PASS — mock Hub scenarios all passed:
+- daemon connects with valid API key and emits heartbeat
+- task submit emits RUNNING, streams logs, and completes
+- cancel kills the child process without a completion result
+- capacity exhaustion emits retryable `CAPACITY_EXHAUSTED`
+- offline buffering flushes events on reconnect
+
+### PASS: Mobile app TypeScript and Android release build
+
+**Commands**:
+```bash
+cd mobile-app && npm run typecheck
+cd mobile-app/android
+ANDROID_HOME=$HOME/.local/share/android-sdk \
+ANDROID_SDK_ROOT=$HOME/.local/share/android-sdk \
+./gradlew assembleRelease
+```
+
+**Status**: PASS — TypeScript check completed and Android release APK build completed successfully.
+
+### FAIL: Deployed Hub API not reachable from Mac during regression window
+
+**Commands**:
+```bash
+curl --max-time 5 -sS -o /tmp/code-caller-live-servers.json \
+  -w 'servers_http=%{http_code}\n' http://172.30.1.83:3000/servers
+curl --max-time 5 -sS -o /tmp/code-caller-live-health.json \
+  -w 'servers_http=%{http_code}\n' http://100.92.64.11:3000/servers
+```
+
+**Observed**:
+- `http://172.30.1.83:3000/servers` timed out after 5 seconds.
+- `http://100.92.64.11:3000/servers` failed to connect immediately.
+- Local launchd still reports `com.codecaller.agent-daemon` running.
+
+**Expected**: unauthenticated `/servers` should return HTTP 401, confirming the Hub API process is reachable even without credentials.
+
+**Severity**: High — mobile and daemon end-to-end live paths depend on the deployed Hub being reachable.
+
+**Next**: Inspect the Ubuntu Hub host/service/network route and restore `http://172.30.1.83:3000` reachability before claiming a live end-to-end pass.
+
 **Test Date**: 2026-08-09  
 **Hub API**: Running on http://localhost:3000 (systemd user service `hub-api`)  
 **Branch**: `qa/hub-api-smoke` (from main)  

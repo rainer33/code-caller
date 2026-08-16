@@ -1,0 +1,22 @@
+{
+  "status": "success",
+  "owner": "codex",
+  "task": "qa-regression-cycle",
+  "startedAt": "2026-08-16T01:00:00Z",
+  "updatedAt": "2026-08-16T01:04:00Z",
+  "summary": "Ran the non-screen QA regression cycle across Hub API build, agent-daemon mock integration, mobile TypeScript, Android release build, and live Hub reachability. Local/build checks passed; deployed Hub reachability failed and was recorded as an operational bug.",
+  "evidence": [
+    ".claude/skills/design-first-scaffold/SKILL.md read before work",
+    "ops/BACKLOG.md selected non-screen P2 QA regression test",
+    "ops/phase4/design/qa-regression-cycle.md",
+    "cd hub-api && npx prisma validate && npx prisma generate && npm run build -> pass",
+    "cd agent-daemon && npm run dev:server -> ALL SCENARIOS PASSED",
+    "cd mobile-app && npm run typecheck -> pass",
+    "cd mobile-app/android && ANDROID_HOME=$HOME/.local/share/android-sdk ANDROID_SDK_ROOT=$HOME/.local/share/android-sdk ./gradlew assembleRelease -> BUILD SUCCESSFUL",
+    "curl --max-time 5 http://172.30.1.83:3000/servers -> timeout/http 000",
+    "curl --max-time 5 http://100.92.64.11:3000/servers -> connection failed/http 000",
+    "launchctl list shows com.codecaller.agent-daemon running"
+  ],
+  "next": "Investigate deployed Hub reachability before the next live end-to-end validation.",
+  "error": null
+}
