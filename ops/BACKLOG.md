@@ -37,4 +37,4 @@
 - [x] P0 — **용량 기반 자동 failover 시스템 2차 / RUNNING watchdog**: `TaskAttempt` 이력, stale `RUNNING` watchdog, 타임아웃 서버 후보 제외, 재큐잉/반복 실패 처리 추가 — `c03fe11`
 - [x] P1 — **Daemon 용량 소진 구조화 실패 사유**: daemon이 capacity/quota/rate-limit 실패를 `CAPACITY_EXHAUSTED`로 구조화해 보고하고, Hub가 해당 서버를 제외해 즉시 다음 compatible worker로 재큐잉하는 경로 추가 — `6fe93db`
 - [x] P1 — **원본 4트랙 프롬프트 버전관리**: 2026-08-09 초기에 우분투 4개 워커(deploy/dev/marketing/QA)에게 즉흥적으로 줬던 프롬프트들을 저장소의 durable branch/artifact 증거 기준으로 재사용 가능하게 `ops/prompts/four-track-*.md`에 정리 — `2e38ca0`
-- [x] P2 — **QA 회귀 테스트**: Phase 3/3b, 맥북 daemon 등록, network security 픽스 이후로 Hub build, daemon mock integration, mobile typecheck, Android release build를 재검증하고 `BUGS.md`를 갱신. Live Hub reachability 실패는 P1 후속으로 분리 — `pending`
+- [x] P2 — **QA 회귀 테스트**: Phase 3/3b, 맥북 daemon 등록, network security 픽스 이후로 Hub build, daemon mock integration, mobile typecheck, Android release build를 재검증하고 `BUGS.md`를 갱신. Live Hub reachability 실패는 P1 후속으로 분리 — `93b89a1`
