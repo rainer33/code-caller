@@ -12,7 +12,6 @@
 - [ ] `[화면]` P1 — **New Task 음성 입력**: Android/iPhone 모두를 고려해 마이크 권한과 음성 인식 라이브러리를 선택한다. 음성은 곧바로 실행하지 않고 editable prompt에 반영하며, 사용자가 확인 후 작업 실행 버튼을 누르게 한다.
 - [ ] `[화면]` P1 — **iPhone 지원 준비**: React Native iOS 빌드, Safe Area, APNs/Firebase 설정, 네트워크 권한, iOS 배포/실기기 테스트 경로를 정리한다.
 - [ ] `[화면]` P2 — **모바일 앱 폴리시**: 작업 취소 버튼, 로그 tail 실시간 스트리밍 뷰, FCM 실제 전송 테스트(Firebase 서비스 계정 키가 준비되면), 에러 상태 UX 개선. `[화면]` 항목이므로 헤드리스 자동 실행이 아니라 사용자가 Codex 데스크톱 앱에서 직접 화면 보며 지시할 때 진행한다.
-- [ ] P1 — **배포 Hub API reachability 복구**: 2026-08-16 QA 회귀 중 Mac에서 `http://172.30.1.83:3000/servers`가 timeout, `http://100.92.64.11:3000/servers`가 connection refused로 live Hub 검증이 막혔다. Ubuntu Hub host/service/network route를 점검하고 unauthenticated `/servers`가 401을 반환하도록 복구한다 (`BUGS.md` 2026-08-16 기록 참고).
 - [ ] P3 — **마케팅 후속**: `MARKETING.md` 초안 이후 실제 커뮤니티 포스팅 여부 확인, 반응 있으면 후속 정리.
 
 ## 완료 (이력)
@@ -38,3 +37,4 @@
 - [x] P1 — **Daemon 용량 소진 구조화 실패 사유**: daemon이 capacity/quota/rate-limit 실패를 `CAPACITY_EXHAUSTED`로 구조화해 보고하고, Hub가 해당 서버를 제외해 즉시 다음 compatible worker로 재큐잉하는 경로 추가 — `6fe93db`
 - [x] P1 — **원본 4트랙 프롬프트 버전관리**: 2026-08-09 초기에 우분투 4개 워커(deploy/dev/marketing/QA)에게 즉흥적으로 줬던 프롬프트들을 저장소의 durable branch/artifact 증거 기준으로 재사용 가능하게 `ops/prompts/four-track-*.md`에 정리 — `2e38ca0`
 - [x] P2 — **QA 회귀 테스트**: Phase 3/3b, 맥북 daemon 등록, network security 픽스 이후로 Hub build, daemon mock integration, mobile typecheck, Android release build를 재검증하고 `BUGS.md`를 갱신. Live Hub reachability 실패는 P1 후속으로 분리 — `93b89a1`
+- [x] P1 — **배포 Hub API reachability 복구**: Hub 서비스가 `100.92.64.11:3000`에서 401 reachability 신호를 반환함을 확인하고, 모바일 앱 REST/Socket.io가 `172.30.1.83` 실패 시 직접 Tailscale 주소로 폴백하도록 복구. 현재 Mac의 `172.30.1.83` timeout은 LAN/subnet-route 문제로 `BUGS.md`에 기록 — `c187fd5`
