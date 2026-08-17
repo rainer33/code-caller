@@ -1,0 +1,22 @@
+{
+  "status": "success",
+  "owner": "codex",
+  "task": "hub-api-reachability-recovery",
+  "startedAt": "2026-08-17T00:50:00.000Z",
+  "updatedAt": "2026-08-17T01:09:00.000Z",
+  "summary": "Recovered deployed Hub API reachability for clients by keeping the LAN URL as primary and adding direct Tailscale fallback for REST and Socket.io. Confirmed the Hub service is active and reachable at the Tailscale IP; documented the remaining LAN/subnet-route timeout from the current Mac network.",
+  "evidence": [
+    ".claude/skills/design-first-scaffold/SKILL.md read before work",
+    "/Users/jahmin/.codex/skills/ubuntu-vm-ssh-access/SKILL.md read before remote server work",
+    "ops/phase4/design/hub-api-reachability-recovery.md",
+    "curl --max-time 5 http://172.30.1.83:3000/servers -> timeout/http 000 from current Mac route",
+    "curl --max-time 5 http://100.92.64.11:3000/servers -> HTTP 401",
+    "remote ssh: hub-api active, ss shows *:3000, local http://127.0.0.1:3000/servers -> HTTP 401",
+    "mobile-app/App.tsx adds REST fallback and active Socket.io base URL",
+    "mobile-app/android/app/src/main/res/xml/network_security_config.xml permits 172.30.1.83 and 100.92.64.11 cleartext",
+    "cd mobile-app && npm run typecheck -> pass",
+    "cd mobile-app/android && ANDROID_HOME=$HOME/.local/share/android-sdk ANDROID_SDK_ROOT=$HOME/.local/share/android-sdk ./gradlew assembleRelease -> BUILD SUCCESSFUL"
+  ],
+  "next": "Merge to main, push, publish the headless worklog, and record the completion hash in BACKLOG.md.",
+  "error": null
+}

@@ -32,7 +32,9 @@ import {
 } from 'react-native-safe-area-context';
 import { io, Socket } from 'socket.io-client';
 
-const API_BASE_URL = 'http://172.30.1.83:3000';
+const API_BASE_URLS = ['http://172.30.1.83:3000', 'http://100.92.64.11:3000'];
+const PRIMARY_API_BASE_URL = API_BASE_URLS[0];
+const HUB_REQUEST_TIMEOUT_MS = 5000;
 const REFRESH_TOKEN_KEY = 'codeCaller.refreshToken';
 
 type AuthTokens = {
@@ -353,6 +355,7 @@ function CodeCallerApp() {
   const [prompt, setPrompt] = useState('');
   const [socketState, setSocketState] = useState('offline');
   const [pushState, setPushState] = useState('not registered');
+  const [activeApiBaseUrl, setActiveApiBaseUrl] = useState(PRIMARY_API_BASE_URL);
   const socketRef = useRef<Socket | null>(null);
 
   const saveTokens = useCallback(async (nextTokens: AuthTokens | null) => {
@@ -364,9 +367,46 @@ function CodeCallerApp() {
     }
   }, []);
 
+  const fetchHub = useCallback(
+    async (path: string, options: RequestInit = {}) => {
+      const orderedUrls = [
+        activeApiBaseUrl,
+        ...API_BASE_URLS.filter(url => url !== activeApiBaseUrl),
+      ];
+      let lastError: unknown = null;
+
+      for (const baseUrl of orderedUrls) {
+        const controller = new AbortController();
+        const timeout = setTimeout(
+          () => controller.abort(),
+          HUB_REQUEST_TIMEOUT_MS,
+        );
+        try {
+          const response = await fetch(`${baseUrl}${path}`, {
+            ...options,
+            signal: controller.signal,
+          });
+          if (baseUrl !== activeApiBaseUrl) {
+            setActiveApiBaseUrl(baseUrl);
+          }
+          return response;
+        } catch (err) {
+          lastError = err;
+        } finally {
+          clearTimeout(timeout);
+        }
+      }
+
+      throw lastError instanceof Error
+        ? lastError
+        : new Error(`${path} failed: Hub API is unreachable`);
+    },
+    [activeApiBaseUrl],
+  );
+
   const refreshSession = useCallback(
     async (refreshToken: string) => {
-      const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      const response = await fetchHub('/auth/refresh', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken }),
@@ -378,7 +418,7 @@ function CodeCallerApp() {
       await saveTokens(nextTokens);
       return nextTokens;
     },
-    [saveTokens],
+    [fetchHub, saveTokens],
   );
 
   const request = useCallback(
@@ -387,7 +427,7 @@ function CodeCallerApp() {
         throw new Error('not authenticated');
       }
       const run = (accessToken: string) =>
-        fetch(`${API_BASE_URL}${path}`, {
+        fetchHub(path, {
           ...options,
           headers: {
             'Content-Type': 'application/json',
@@ -457,7 +497,7 @@ function CodeCallerApp() {
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      const response = await fetchHub('/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim(), password }),
@@ -473,7 +513,7 @@ function CodeCallerApp() {
     } finally {
       setBusy(false);
     }
-  }, [email, password, saveTokens]);
+  }, [email, fetchHub, password, saveTokens]);
 
   const logout = useCallback(async () => {
     const refreshToken = tokens?.refreshToken;
@@ -486,13 +526,13 @@ function CodeCallerApp() {
     setSelectedTaskId(null);
     setPrompt('');
     if (refreshToken) {
-      fetch(`${API_BASE_URL}/auth/logout`, {
+      fetchHub('/auth/logout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken }),
       }).catch(() => undefined);
     }
-  }, [saveTokens, tokens?.refreshToken]);
+  }, [fetchHub, saveTokens, tokens?.refreshToken]);
 
   const decideApproval = useCallback(
     async (approval: ApprovalItem, approve: boolean) => {
@@ -621,7 +661,7 @@ function CodeCallerApp() {
     }
 
     loadAll();
-    const socket = io(`${API_BASE_URL}/app`, {
+    const socket = io(`${activeApiBaseUrl}/app`, {
       transports: ['websocket'],
       auth: { token: tokens.accessToken },
     });
@@ -651,7 +691,7 @@ function CodeCallerApp() {
     return () => {
       socket.disconnect();
     };
-  }, [loadAll, tokens]);
+  }, [activeApiBaseUrl, loadAll, tokens]);
 
   const content = useMemo(() => {
     if (tab === 'servers') {
@@ -731,7 +771,9 @@ function CodeCallerApp() {
           style={styles.loginPane}
         >
           <Text style={styles.loginTitle}>Code Caller</Text>
-          <Text style={styles.loginSubtitle}>Hub API: {API_BASE_URL}</Text>
+          <Text style={styles.loginSubtitle}>
+            Hub API: {activeApiBaseUrl}
+          </Text>
           <TextInput
             autoCapitalize="none"
             keyboardType="email-address"

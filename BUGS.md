@@ -65,6 +65,33 @@ curl --max-time 5 -sS -o /tmp/code-caller-live-health.json \
 
 **Next**: Inspect the Ubuntu Hub host/service/network route and restore `http://172.30.1.83:3000` reachability before claiming a live end-to-end pass.
 
+### RESOLVED: Deployed Hub API reachable through direct Tailscale fallback
+
+**Resolution Date**: 2026-08-17
+
+**Findings**:
+- Ubuntu Hub service `hub-api` was active and listening on `*:3000`.
+- Remote local `http://127.0.0.1:3000/servers` returned HTTP 401.
+- Mac to `http://100.92.64.11:3000/servers` returned HTTP 401.
+- Mac to `http://172.30.1.83:3000/servers` still timed out because the current
+  Mac route to `172.30.1.83` goes through Tailscale rather than a direct
+  `172.30.1.0/24` LAN interface.
+
+**Fix**:
+- Mobile app now keeps `http://172.30.1.83:3000` as the primary Hub API URL and
+  falls back to `http://100.92.64.11:3000` on network failure.
+- REST calls use a 5s per-URL timeout so LAN route timeouts do not block the
+  fallback path indefinitely.
+- Socket.io reconnects to the active reachable Hub base URL.
+- Android release cleartext config permits both deployment IPs.
+
+**Verification**:
+- `cd mobile-app && npm run typecheck`: PASS.
+- `cd mobile-app/android && ANDROID_HOME=$HOME/.local/share/android-sdk ANDROID_SDK_ROOT=$HOME/.local/share/android-sdk ./gradlew assembleRelease`: PASS.
+- `curl --max-time 5 http://100.92.64.11:3000/servers`: HTTP 401.
+- Remote SSH check: `systemctl --user is-active hub-api` returned `active`,
+  `ss -ltnp` showed `*:3000`, and local `/servers` returned HTTP 401.
+
 **Test Date**: 2026-08-09  
 **Hub API**: Running on http://localhost:3000 (systemd user service `hub-api`)  
 **Branch**: `qa/hub-api-smoke` (from main)  
