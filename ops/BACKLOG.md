@@ -37,4 +37,4 @@
 - [x] P1 — **원본 4트랙 프롬프트 버전관리**: 2026-08-09 초기에 우분투 4개 워커(deploy/dev/marketing/QA)에게 즉흥적으로 줬던 프롬프트들을 저장소의 durable branch/artifact 증거 기준으로 재사용 가능하게 `ops/prompts/four-track-*.md`에 정리 — `2e38ca0`
 - [x] P2 — **QA 회귀 테스트**: Phase 3/3b, 맥북 daemon 등록, network security 픽스 이후로 Hub build, daemon mock integration, mobile typecheck, Android release build를 재검증하고 `BUGS.md`를 갱신. Live Hub reachability 실패는 P1 후속으로 분리 — `93b89a1`
 - [x] P1 — **배포 Hub API reachability 복구**: Hub 서비스가 `100.92.64.11:3000`에서 401 reachability 신호를 반환함을 확인하고, 모바일 앱 REST/Socket.io가 `172.30.1.83` 실패 시 직접 Tailscale 주소로 폴백하도록 복구. 현재 Mac의 `172.30.1.83` timeout은 LAN/subnet-route 문제로 `BUGS.md`에 기록 — `c187fd5`
-- [x] P3 — **마케팅 후속**: `MARKETING.md` 초안 이후 실제 커뮤니티 포스팅 여부를 저장소/원격 브랜치/공개 웹 검색으로 감사. 게시 증거와 외부 반응이 없어 `MARKETING.md`에 2026-08-18 감사 결과를 남김 — `303a89d`
+- [x] P3 — **마케팅 후속**: `MARKETING.md` 초안 이후 실제 커뮤니티 포스팅 여부를 저장소/원격 브랜치/공개 웹 검색으로 감사. 게시 증거와 외부 반응이 없어 `MARKETING.md`에 2026-08-18 감사 결과를 남김 — `e5a9f2b`
