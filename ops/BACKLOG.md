@@ -9,6 +9,7 @@
 ## ⚠️ 사람 확인 필요
 
 - 2026-09-06 10:02 KST 헤드리스 작업일지 발행 중, Obsidian 작업일지 파일 `/Users/jahmin/Downloads/openai-export-data/LLM-Wiki-Vault/40_Content/Code-Caller/2026-09-06.md` 생성은 성공했지만 해당 vault에서 `git status`/`git remote`/`.git` 탐색이 macOS 권한 문제로 `Operation not permitted`를 반환했다. Notion 작업일지는 생성됐지만 Obsidian 커밋/푸시는 완료하지 못했다. Obsidian 동기화가 계속 필요하면 Codex 실행 환경에 해당 Downloads vault 경로의 git 작업 권한을 허용해야 한다.
+- 2026-09-07 10:02 KST 헤드리스 작업일지 발행 중, Notion 작업일지 생성과 Obsidian Markdown 파일 `/Users/jahmin/Downloads/openai-export-data/LLM-Wiki-Vault/40_Content/Code-Caller/2026-09-07.md` 작성은 성공했지만 해당 vault에서 `git add`가 macOS 권한 문제로 `Operation not permitted`를 반환했다. Obsidian 커밋/푸시는 완료하지 못했다. Obsidian 동기화가 계속 필요하면 Codex 실행 환경에 해당 Downloads vault 경로의 git 작업 권한을 허용해야 한다.
 - 2026-09-07 10:00 KST (01:00:56Z) 헤드리스 실행 기준, `[화면]` 표시가 없는 미완료 백로그 항목이 없다. 헤드리스 규칙상 아래의 화면/UX 항목은 사용자가 Codex 데스크톱 앱에서 직접 지시할 때까지 선택하면 안 되므로, 자동 실행은 새 비화면 백엔드/인프라/운영 작업이 추가되기 전까지 구현 작업을 진행하지 않는다.
 - 2026-09-06 10:00 KST (01:00:36Z) 헤드리스 실행 기준, `[화면]` 표시가 없는 미완료 백로그 항목이 없다. 헤드리스 규칙상 아래의 화면/UX 항목은 사용자가 Codex 데스크톱 앱에서 직접 지시할 때까지 선택하면 안 되므로, 자동 실행은 새 비화면 백엔드/인프라/운영 작업이 추가되기 전까지 구현 작업을 진행하지 않는다. 다음 조치는 사용자가 화면 작업을 대화형으로 지시하거나, 새 비화면 항목을 이 백로그에 추가하는 것이다.
 
