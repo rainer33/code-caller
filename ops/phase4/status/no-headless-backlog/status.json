@@ -34,8 +34,13 @@
     "git push origin main -> e3a8749",
     "Notion worklog -> https://app.notion.com/p/3d4b1ca1fdde8155a4e3cc49e9c723cc?pvs=204",
     "Obsidian worklog file created -> /Users/jahmin/Downloads/openai-export-data/LLM-Wiki-Vault/40_Content/Code-Caller/2026-09-07.md",
-    "Obsidian git sync blocked: git status/git remote/.git discovery under /Users/jahmin/Downloads/openai-export-data/LLM-Wiki-Vault returned Operation not permitted"
+    "Obsidian git sync blocked: git status/git remote/.git discovery under /Users/jahmin/Downloads/openai-export-data/LLM-Wiki-Vault returned Operation not permitted",
+    "git push origin main -> cb9be2d",
+    "Notion worklog -> https://app.notion.com/p/3d5b1ca1fdde8120b2efc5df62297f04?pvs=204",
+    "Obsidian worklog file created -> /Users/jahmin/Downloads/openai-export-data/LLM-Wiki-Vault/40_Content/Code-Caller/2026-09-08.md",
+    "Obsidian direct vault git sync blocked: git -C /Users/jahmin/Downloads/openai-export-data/LLM-Wiki-Vault status returned Operation not permitted",
+    "Obsidian worklog repo synced via /tmp clone -> f5b3b46"
   ],
   "next": "A human should either run an interactive UI session for the [화면] items or add a new non-screen backlog item for future headless commander cycles. If Obsidian worklog sync is required, grant the Codex execution environment access to the Downloads vault path.",
-  "error": "Obsidian worklog file was created, but commit and push could not be completed because macOS denied git access under /Users/jahmin/Downloads/openai-export-data/LLM-Wiki-Vault."
+  "error": "Direct git operations under /Users/jahmin/Downloads/openai-export-data/LLM-Wiki-Vault are still blocked by macOS permissions, but the 2026-09-08 worklog was pushed to code-caller-worklog through a /tmp clone."
 }
