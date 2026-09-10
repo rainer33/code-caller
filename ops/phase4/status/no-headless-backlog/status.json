@@ -46,7 +46,11 @@
     "git push origin main -> 7ddb4e5",
     "Notion worklog -> https://app.notion.com/p/3d6b1ca1fdde81579b9ac2b1d8032223?pvs=204",
     "Obsidian direct vault git sync blocked: git -C /Users/jahmin/Downloads/openai-export-data/LLM-Wiki-Vault status returned Operation not permitted",
-    "Obsidian worklog repo synced via /tmp clone -> 0f32765"
+    "Obsidian worklog repo synced via /tmp clone -> 0f32765",
+    "git push origin main -> 2a999e6",
+    "Notion worklog -> https://app.notion.com/p/3d7b1ca1fdde8102b6e2e0af937423be?pvs=204",
+    "Obsidian direct vault git sync blocked: git -C /Users/jahmin/Downloads/openai-export-data/LLM-Wiki-Vault status returned Operation not permitted",
+    "Obsidian worklog repo synced via /tmp clone -> b6afd50"
   ],
   "next": "A human should either run an interactive UI session for the [화면] items or add a new non-screen backlog item for future headless commander cycles. If Obsidian worklog sync is required, grant the Codex execution environment access to the Downloads vault path.",
   "error": null
